@@ -134,7 +134,8 @@ export function setupLoginPage() {
       });
 
       if (error) {
-        showMessage(signUpMessage, error.message, 'error');
+        console.error('Sign up error:', error);
+        showMessage(signUpMessage, error.message || 'Failed to create account. Please try again.', 'error');
         return;
       }
 
@@ -143,8 +144,16 @@ export function setupLoginPage() {
         signUpFormElement.reset();
       }
     } catch (err) {
-      showMessage(signUpMessage, 'An unexpected error occurred. Please try again.', 'error');
-      console.error('Sign up error:', err);
+      console.error('Sign up exception:', err);
+      const errorMessage = err.message || 'An unexpected error occurred. Please try again.';
+      showMessage(signUpMessage, errorMessage, 'error');
+      
+      // Check for specific error types
+      if (err.message && err.message.includes('fetch')) {
+        showMessage(signUpMessage, 'Network error: Check CORS settings in Supabase or your internet connection.', 'error');
+      } else if (err.message && err.message.includes('Supabase')) {
+        showMessage(signUpMessage, 'Supabase error: Check your Supabase URL and anon key in config.js', 'error');
+      }
     }
   });
 
@@ -165,7 +174,8 @@ export function setupLoginPage() {
       });
 
       if (loginErr) {
-        showMessage(loginMessage, loginErr.message, 'error');
+        console.error('Login error:', loginErr);
+        showMessage(loginMessage, loginErr.message || 'Failed to login. Please check your credentials.', 'error');
         return;
       }
 
@@ -179,8 +189,16 @@ export function setupLoginPage() {
         }, 1000);
       }
     } catch (err) {
-      showMessage(loginMessage, 'An unexpected error occurred. Please try again.', 'error');
-      console.error('Login error:', err);
+      console.error('Login exception:', err);
+      const errorMessage = err.message || 'An unexpected error occurred. Please try again.';
+      showMessage(loginMessage, errorMessage, 'error');
+      
+      // Check for specific error types
+      if (err.message && err.message.includes('fetch')) {
+        showMessage(loginMessage, 'Network error: Check CORS settings in Supabase or your internet connection.', 'error');
+      } else if (err.message && err.message.includes('Supabase')) {
+        showMessage(loginMessage, 'Supabase error: Check your Supabase URL and anon key in config.js', 'error');
+      }
     }
   });
 }
