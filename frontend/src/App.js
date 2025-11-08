@@ -1,12 +1,10 @@
 import { createNavigationRail, setupNavigationRail } from './navigationRail.js'
 import { createReviewsComponent } from './reviews.js'
-import { createCropManagementComponent } from './cropManagement.js'
+import { protectRoute, logout, getCurrentUser, getUserProfile } from './auth.js'
 import { createUserPreferencesComponent } from './userPreferences.js'
-import { createLoadingScreen } from './loading.js'
-import { setupStatsCarousel } from './carousel.js'
+import { createCropManagementComponent } from './cropManagement.js'
 import { setupDashboard } from './dashboard.js'
-
-let currentPage = 'dashboard';
+import { setupStatsCarousel } from './carousel.js'
 
 export function createApp() {
   return `
@@ -23,25 +21,17 @@ export function navigateTo(page) {
   const contentArea = document.getElementById('app-content');
   if (!contentArea) return;
 
-  // Show loading screen
-  contentArea.innerHTML = createLoadingScreen();
-  
-  // Simulate loading delay
-  setTimeout(() => {
-    currentPage = page;
-
-    if (page === 'dashboard') {
-      contentArea.innerHTML = createReviewsComponent();
-      setTimeout(() => {
-        setupDashboard();
-      }, 50);
-    } else if (page === 'user-preferences') {
-      contentArea.innerHTML = createUserPreferencesComponent();
-      setTimeout(() => setupUserPreferences(), 50);
-    } else if (page === 'crop-management') {
-      contentArea.innerHTML = createCropManagementComponent();
-    }
-  }, 200); // 200ms loading delay for faster navigation
+  if (page === 'dashboard') {
+    contentArea.innerHTML = createReviewsComponent();
+    setTimeout(() => {
+      setupDashboard();
+    }, 50);
+  } else if (page === 'user-preferences') {
+    contentArea.innerHTML = createUserPreferencesComponent();
+    setTimeout(() => setupUserPreferences(), 50);
+  } else if (page === 'crop-management') {
+    contentArea.innerHTML = createCropManagementComponent();
+  }
 }
 
 export function setupCropManagementCard() {
@@ -59,6 +49,28 @@ export function setupCropManagementCard() {
 }
 
 export async function setupApp() {
+  // Protect the route - check if user is authenticated
+  const isAuthenticated = await protectRoute();
+  if (!isAuthenticated) {
+    return; // User will be redirected to login
+  }
+
+  // Get current user info and profile
+  try {
+    const user = await getCurrentUser();
+    const profile = await getUserProfile();
+    
+    console.log('Logged in as:', user?.email);
+    console.log('User profile:', profile);
+    
+    // Profile is automatically created by the SQL trigger when user signs up
+    if (profile) {
+      console.log('Display name:', profile.display_name);
+    }
+  } catch (err) {
+    console.error('Error getting user:', err);
+  }
+
   // Set up navigation with our router
   const navItems = document.querySelectorAll('.nav-item');
   
@@ -79,9 +91,13 @@ export async function setupApp() {
         navigateTo('user-preferences');
       } else if (route === 'logout') {
         if (confirm('Are you sure you want to logout?')) {
-          console.log('Logging out...');
-          // Add logout logic here
-          // window.location.href = '/login';
+          try {
+            await logout();
+            // logout() will redirect to login page
+          } catch (err) {
+            console.error('Logout error:', err);
+            alert('Error logging out. Please try again.');
+          }
         }
       }
     });
