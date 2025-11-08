@@ -1,6 +1,62 @@
 // Image assets from Figma
 const imgImageAlbumArt = "https://www.figma.com/api/mcp/asset/fe69c311-f4c9-47c2-aff6-ad44dc9877db";
 
+// Zone schedule data - each zone has its next scheduled time
+// For demo: using 10-second intervals to demonstrate the watering process
+const zoneScheduleData = [
+  { zone: 'Zone 1', scheduledTime: new Date(Date.now() + 10 * 1000), duration: '30 min' }, // 10 seconds from now
+  { zone: 'Zone 2', scheduledTime: new Date(Date.now() + 20 * 1000), duration: '25 min' }, // 20 seconds from now
+  { zone: 'Zone 3', scheduledTime: new Date(Date.now() + 30 * 1000), duration: '35 min' }, // 30 seconds from now
+  { zone: 'Zone 4', scheduledTime: new Date(Date.now() + 40 * 1000), duration: '40 min' }  // 40 seconds from now
+];
+
+// Generate schedule cards HTML from zone data
+function generateScheduleCards() {
+  // Sort by scheduled time (earliest first)
+  const sortedSchedule = [...zoneScheduleData].sort((a, b) => {
+    return a.scheduledTime.getTime() - b.scheduledTime.getTime();
+  });
+  
+  return sortedSchedule.map((schedule, index) => {
+    const timeUntil = Math.max(0, Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000 / 60));
+    const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    const timeUntilSeconds = Math.max(0, Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000));
+    
+    return `
+    <div class="schedule-card" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}">
+      <div class="schedule-card-header">
+        <span class="schedule-zone-name">${schedule.zone}</span>
+        <span class="schedule-status-badge">Upcoming</span>
+      </div>
+      <div class="schedule-card-content">
+        <div class="schedule-time-display">
+          <span class="schedule-icon">🕐</span>
+          <span class="schedule-time">${timeStr}</span>
+        </div>
+        <div class="schedule-countdown">
+          <span class="countdown-text">Scheduled in</span>
+          <span class="countdown-value" data-zone="${schedule.zone}">${timeUntilSeconds}s</span>
+        </div>
+        <div class="water-tube-container">
+          <div class="water-tube">
+            <div class="water-tube-fill" data-zone="${schedule.zone}" style="height: 0%;">
+              <div class="water-wave"></div>
+            </div>
+            <div class="water-tube-label">Watering Progress</div>
+          </div>
+        </div>
+        <div class="schedule-duration">Duration: ${schedule.duration}</div>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
 export function createReviewsComponent() {
   return `
     <div class="reviews-container" data-name="Examples/Reviews-Web" data-node-id="14:2081">
@@ -333,17 +389,27 @@ export function createReviewsComponent() {
             </button>
           </div>
 
-          <!-- Upcoming Activities Section -->
-          <div class="upcoming-activities-section">
-            <h2 class="activities-section-title">Upcoming Activities</h2>
-            <div class="activities-table">
-              <div class="activity-row">
-                <div class="activity-label">
-                  <span class="activity-icon">💧</span>
-                  <span>Next watering schedule:</span>
+          <!-- Watering Schedule Carousel Section -->
+          <div class="watering-schedule-section">
+            <h2 class="watering-schedule-title">Watering Schedule</h2>
+            <div class="watering-schedule-carousel-container">
+              <button class="watering-carousel-arrow watering-carousel-arrow-left" aria-label="Previous Schedule">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 18l-6-6 6-6"/>
+                </svg>
+              </button>
+              
+              <div class="watering-carousel-wrapper">
+                <div class="watering-carousel" id="watering-carousel">
+                  ${generateScheduleCards()}
                 </div>
-                <div class="activity-value">--</div>
               </div>
+              
+              <button class="watering-carousel-arrow watering-carousel-arrow-right" aria-label="Next Schedule">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 18l6-6-6-6"/>
+                </svg>
+              </button>
             </div>
           </div>
 
