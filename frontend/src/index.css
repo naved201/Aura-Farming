@@ -1,6 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --schemes-surface: #fef7ff;
+  --schemes-outline-variant: #cac4d0;
+  --schemes-surface-container-lowest: #ffffff;
+  --schemes-on-surface: #1d1b20;
+  --schemes-inverse-on-surface: #f5eff7;
+  --schemes-surface-container-high: #ece6f0;
+  --corner-extra-large: 28px;
+  
+  /* Support for Figma variable names with slashes */
+  --schemes\/surface: #fef7ff;
+  --schemes\/outline-variant: #cac4d0;
+  --schemes\/surface-container-lowest: #ffffff;
+  --schemes\/on-surface: #1d1b20;
+  --schemes\/inverse-on-surface: #f5eff7;
+  --schemes\/surface-container-high: #ece6f0;
+  --corner\/extra-large: 28px;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
