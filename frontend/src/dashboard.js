@@ -37,8 +37,6 @@ function setupZonesCarousel() {
     setTimeout(setupZonesCarousel, 100);
     return;
   }
-  
-  const maxIndex = totalZones - 1;
 
   function updateCarousel() {
     zones = carousel.querySelectorAll('.zone-container');
@@ -59,20 +57,13 @@ function setupZonesCarousel() {
       return;
     }
     
-    // Get the actual width of the first zone card
-    const firstZone = zones[0];
-    if (!firstZone) {
-      setTimeout(updateCarousel, 100);
-      return;
-    }
-    
-    const zoneWidth = firstZone.offsetWidth;
+    // Get the actual width of the wrapper (visible area)
     const carouselStyle = window.getComputedStyle(carousel);
-    const gapValue = carouselStyle.gap || '16px';
-    const gap = parseInt(gapValue) || 16;
+    const gapValue = carouselStyle.gap || '10px';
+    const gap = parseInt(gapValue) || 10;
     
-    // Calculate translation based on actual zone width
-    const translateX = -currentIndex * (zoneWidth + gap);
+    // Use wrapper width directly since each zone is 100% of wrapper
+    const translateX = -currentIndex * (wrapperWidth + gap);
     
     carousel.style.transform = `translateX(${translateX}px)`;
     carousel.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -88,19 +79,14 @@ function setupZonesCarousel() {
     updateCarousel();
   }
 
-  // Remove any existing listeners and add new ones
-  const newRightArrow = rightArrow.cloneNode(true);
-  const newLeftArrow = leftArrow.cloneNode(true);
-  rightArrow.parentNode.replaceChild(newRightArrow, rightArrow);
-  leftArrow.parentNode.replaceChild(newLeftArrow, leftArrow);
-
-  newRightArrow.addEventListener('click', (e) => {
+  // Add direct click listeners to arrows
+  rightArrow.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
     next();
   });
   
-  newLeftArrow.addEventListener('click', (e) => {
+  leftArrow.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
     prev();

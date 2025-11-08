@@ -20,7 +20,6 @@ export function createUserPreferencesComponent() {
 
             <!-- Page Title -->
             <div class="preferences-header">
-              <h1 class="preferences-title">User Preferences</h1>
               <h2 class="preferences-subtitle">Your zones</h2>
             </div>
 
@@ -32,7 +31,16 @@ export function createUserPreferencesComponent() {
               <div class="zone-button zone-button-active" data-zone="2">
                 Zone 2
               </div>
+              <div class="zone-button zone-button-inactive" data-zone="3">
+                Zone 3
+              </div>
+              <div class="zone-button zone-button-inactive" data-zone="4">
+                Zone 4
+              </div>
               <button class="add-zone-button" id="add-zone-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
                 Add Zone
               </button>
             </div>
