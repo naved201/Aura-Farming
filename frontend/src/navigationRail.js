@@ -26,11 +26,6 @@ export function createNavigationRail() {
           </div>
         </div>
         
-        <!-- Logo at bottom -->
-        <div class="nav-logo">
-          <img src="/vite.svg" alt="AuraFarm Logo" class="logo-image" />
-        </div>
-        
         <div class="nav-item nav-item-logout" data-route="logout">
           <div class="nav-item-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
