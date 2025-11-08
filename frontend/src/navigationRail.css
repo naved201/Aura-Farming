@@ -1,0 +1,203 @@
+/* Import Roboto font - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;600&display=swap');
+
+/* Material Design 3 Color Variables */
+:root {
+  --schemes-surface: #fef7ff;
+  --schemes-surface-container: #f3edf7;
+}
+
+/* Navigation Rail Standalone */
+.navigation-rail-standalone {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  align-items: center;
+  padding: 24px 0 56px 0;
+  position: relative;
+  width: 80px;
+  height: 100vh;
+  background: var(--schemes-surface-container);
+  flex-shrink: 0;
+}
+
+/* Navigation Items Container */
+.nav-items-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  flex: 1;
+  justify-content: space-between;
+  padding-bottom: 16px;
+}
+
+.nav-items-top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.nav-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.nav-item.active {
+  background-color: rgba(103, 80, 164, 0.12);
+}
+
+.nav-item.active .nav-item-icon {
+  color: #6750a4;
+}
+
+.nav-item-icon {
+  width: 24px;
+  height: 24px;
+  color: rgba(29, 27, 32, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.nav-item:hover .nav-item-icon {
+  color: rgba(29, 27, 32, 0.87);
+}
+
+.nav-item-label {
+  font-family: 'Roboto', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(29, 27, 32, 0.6);
+  text-align: center;
+  line-height: 16px;
+  transition: color 0.2s;
+}
+
+.nav-item:hover .nav-item-label {
+  color: rgba(29, 27, 32, 0.87);
+}
+
+.nav-item.active .nav-item-label {
+  color: #6750a4;
+  font-weight: 600;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin: 16px 0;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(103, 80, 164, 0.08);
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.nav-item-logout {
+  /* Logout is positioned at the bottom via flexbox in nav-items-container */
+}
+
+.nav-item-logout .nav-item-icon {
+  color: rgba(186, 26, 26, 0.6);
+}
+
+.nav-item-logout:hover .nav-item-icon {
+  color: #ba1a1a;
+}
+
+.nav-item-logout .nav-item-label {
+  color: rgba(186, 26, 26, 0.6);
+}
+
+.nav-item-logout:hover .nav-item-label {
+  color: #ba1a1a;
+}
+
+.menu-fab {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.icon-button-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: clip;
+  position: relative;
+  border-radius: 16px;
+  flex-shrink: 0;
+  width: 56px;
+}
+
+.icon-button-state-layer {
+  display: flex;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.menu-icon {
+  overflow: clip;
+  position: relative;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.menu-icon-inner {
+  position: absolute;
+  bottom: 25%;
+  left: 12.5%;
+  right: 12.5%;
+  top: 25%;
+}
+
+.menu-icon-img {
+  display: block;
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+

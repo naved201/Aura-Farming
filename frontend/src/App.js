@@ -1,25 +1,69 @@
-import logo from './logo.svg';
-import './App.css';
+import { createNavigationRail, setupNavigationRail } from './navigationRail.js'
+import { createReviewsComponent } from './reviews.js'
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+let currentPage = 'dashboard';
+
+export function createApp() {
+  return `
+    <div class="app-layout">
+      ${createNavigationRail()}
+      <div class="app-content" id="app-content">
+        ${createReviewsComponent()}
+      </div>
     </div>
-  );
+  `;
 }
 
-export default App;
+export function navigateTo(page) {
+  const contentArea = document.getElementById('app-content');
+  if (!contentArea) return;
+
+  currentPage = page;
+
+  if (page === 'dashboard') {
+    contentArea.innerHTML = createReviewsComponent();
+  } else if (page === 'water') {
+    contentArea.innerHTML = `
+      <div class="water-page">
+        <h1>Water Page</h1>
+        <p>Water management content goes here</p>
+      </div>
+    `;
+  }
+}
+
+export function setupApp() {
+  // Set up navigation with our router
+  const navItems = document.querySelectorAll('.nav-item');
+  
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      e.preventDefault();
+      const route = item.getAttribute('data-route');
+      
+      // Remove active state from all items
+      navItems.forEach(nav => nav.classList.remove('active'));
+      // Add active state to clicked item
+      item.classList.add('active');
+      
+      // Handle navigation
+      if (route === 'dashboard') {
+        navigateTo('dashboard');
+      } else if (route === 'water') {
+        navigateTo('water');
+      } else if (route === 'logout') {
+        if (confirm('Are you sure you want to logout?')) {
+          console.log('Logging out...');
+          // window.location.href = '/login';
+        }
+      }
+    });
+  });
+  
+  // Set initial active state
+  const dashboardItem = document.querySelector('.nav-item[data-route="dashboard"]');
+  if (dashboardItem) {
+    dashboardItem.classList.add('active');
+  }
+}
+
