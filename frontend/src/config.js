@@ -1,6 +1,6 @@
 // Supabase Configuration for Frontend
-const SUPABASE_URL = 'https://buqsqvmyyjrpzfrrnnti.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1cXNxdm15eWpycHpmcnJubnRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1NTY4MzcsImV4cCI6MjA3ODEzMjgzN30.H7mjJxkj-T-h6kusXvt80NI6BlazsjGti2rDWJ8V06Y';
+const SUPABASE_URL = 'https://sxserhbozsmqbyninsbq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4c2VyaGJvenNtcWJ5bmluc2JxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2MjM0MDQsImV4cCI6MjA3ODE5OTQwNH0.WGZfUuLU5Ug0FH6RCwl2RE8F89FqP--qtBhe8ENZ8r0';
 
 // Initialize Supabase client (using global supabase from script tag)
 function getSupabaseClient() {

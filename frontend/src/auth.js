@@ -35,6 +35,33 @@ export async function getCurrentUser() {
 }
 
 /**
+ * Get user profile from profiles table
+ * @returns {Promise<object|null>}
+ */
+export async function getUserProfile() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching profile:', error);
+      return null;
+    }
+    
+    return profile;
+  } catch (err) {
+    console.error('Error getting profile:', err);
+    return null;
+  }
+}
+
+/**
  * Logout user
  * @returns {Promise<void>}
  */
@@ -67,14 +94,4 @@ export async function protectRoute() {
   }
   
   return true;
-}
-
-/**
- * Listen for auth state changes
- * @param {Function} callback - Called when auth state changes
- */
-export function onAuthStateChange(callback) {
-  supabase.auth.onAuthStateChange((event, session) => {
-    callback(event, session);
-  });
 }
