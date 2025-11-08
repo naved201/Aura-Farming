@@ -80,6 +80,28 @@
   100% { background-position: 0% 50%; }
 }
 
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 /* Performance optimizations */
 * {
   -webkit-font-smoothing: antialiased;
@@ -238,6 +260,7 @@
   overflow-x: hidden;
   overflow-y: visible;
   box-sizing: border-box;
+  animation: fadeInUp 0.3s ease-out;
 }
 
 /* App Bars */
@@ -366,8 +389,9 @@
   max-width: 900px;
   box-shadow: var(--shadow-xl);
   border: 2px solid rgba(102, 187, 106, 0.4);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(102, 187, 106, 0.05) 100%);
+  animation: fadeInUp 0.3s ease-out 0.05s both;
 }
 
 .crop-management-hero-card {
@@ -378,7 +402,7 @@
   overflow-x: hidden;
   height: 320px;
   max-height: 70vh;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .crop-management-hero-card .hero-image-bg {
@@ -428,7 +452,7 @@
   opacity: 0;
   max-height: 0;
   overflow: hidden;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   margin-top: 20px;
 }
@@ -448,7 +472,7 @@
   border-radius: 12px;
   margin-bottom: 12px;
   border: 1px solid rgba(102, 187, 106, 0.2);
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 .expanded-info-item:hover {
@@ -496,7 +520,7 @@
   background: var(--gradient-hero);
   z-index: 0;
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease;
 }
 
 .hero-card::after {
@@ -508,7 +532,7 @@
   height: 200%;
   background: radial-gradient(circle, rgba(102, 187, 106, 0.1) 0%, transparent 70%);
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease;
   z-index: 0;
 }
 
@@ -693,7 +717,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
   color: var(--eco-primary);
   box-shadow: 0 2px 8px rgba(27, 94, 32, 0.2);
@@ -737,7 +761,7 @@
 .crop-carousel {
   display: flex;
   gap: 16px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
 }
 
@@ -786,7 +810,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
   flex-shrink: 0;
   color: var(--eco-primary);
   box-shadow: var(--shadow-md);
@@ -818,7 +842,7 @@
 .stats-carousel {
   display: flex;
   gap: 20px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
 }
 
@@ -847,11 +871,17 @@
   gap: 16px;
   box-shadow: var(--shadow-md);
   border: 1px solid rgba(102, 187, 106, 0.15);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  animation: fadeInUp 0.3s ease-out both;
 }
+
+.stat-card:nth-child(1) { animation-delay: 0.1s; }
+.stat-card:nth-child(2) { animation-delay: 0.15s; }
+.stat-card:nth-child(3) { animation-delay: 0.2s; }
+.stat-card:nth-child(4) { animation-delay: 0.25s; }
 
 .stat-card::before {
   content: '';
@@ -862,7 +892,7 @@
   bottom: 0;
   background: linear-gradient(135deg, rgba(102, 187, 106, 0.05) 0%, transparent 100%);
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease;
 }
 
 .stat-card:hover::before {
@@ -976,7 +1006,7 @@
   padding: 28px;
   box-shadow: var(--shadow-md);
   border: 2px solid rgba(102, 187, 106, 0.3);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   position: relative;
   overflow: visible;
@@ -996,7 +1026,7 @@
   bottom: 0;
   background: var(--gradient-hero);
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease;
   border-radius: 24px;
 }
 
@@ -1044,7 +1074,7 @@
 .crop-management-arrow {
   font-size: 24px;
   color: var(--eco-primary);
-  transition: transform 0.3s ease;
+  transition: transform 0.15s ease;
 }
 
 .crop-management-card:hover .crop-management-arrow {
@@ -1063,7 +1093,7 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(-20px);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
   pointer-events: none;
   padding: 20px;
@@ -1084,7 +1114,7 @@
 .crop-management-stats .stat-card {
   margin: 0;
   transform: scale(0.95);
-  transition: transform 0.3s ease;
+  transition: transform 0.15s ease;
 }
 
 .crop-management-card:hover .crop-management-stats .stat-card {
@@ -1108,7 +1138,7 @@
   padding: 28px;
   box-shadow: var(--shadow-md);
   border: 1px solid rgba(102, 187, 106, 0.25);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
@@ -1121,7 +1151,7 @@
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(102, 187, 106, 0.15), transparent);
-  transition: left 0.6s ease;
+  transition: left 0.3s ease;
 }
 
 .content-card::after {
@@ -1133,7 +1163,7 @@
   bottom: 0;
   background: linear-gradient(135deg, rgba(102, 187, 106, 0.08) 0%, transparent 100%);
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 0.2s ease;
 }
 
 .content-card:hover::before {
@@ -1187,7 +1217,7 @@
   width: 100%;
   height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transition: left 0.5s ease;
+  transition: left 0.25s ease;
 }
 
 .card-badge:hover::before {
@@ -1387,7 +1417,7 @@
   background: rgba(255, 255, 255, 0.7);
   border-radius: 20px;
   border: 1px solid rgba(102, 187, 106, 0.2);
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 .blank-stat-item:hover {
@@ -1463,7 +1493,7 @@
   padding: 28px;
   box-shadow: var(--shadow-md);
   border: 1px solid rgba(102, 187, 106, 0.25);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .crop-section-card:hover {
@@ -1499,7 +1529,7 @@
   background: rgba(255, 255, 255, 0.6);
   border-radius: 12px;
   border: 1px solid rgba(102, 187, 106, 0.15);
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 .field-item:hover {
@@ -1543,7 +1573,7 @@
   background: rgba(255, 255, 255, 0.6);
   border-radius: 12px;
   border: 1px solid rgba(102, 187, 106, 0.15);
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
 }
 
 .update-item:hover {
@@ -1593,6 +1623,17 @@
   align-items: center;
   gap: 16px;
   flex-shrink: 0;
+  animation: slideInLeft 0.3s ease-out 0.1s both;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.water-saved-metric:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 16px 48px rgba(27, 94, 32, 0.25),
+    0 6px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  border-color: rgba(102, 187, 106, 0.5);
 }
 
 .water-saved-label {
@@ -1626,6 +1667,7 @@
   flex-shrink: 0;
   overflow-x: hidden;
   overflow-y: visible;
+  animation: fadeInUp 0.3s ease-out 0.2s both;
 }
 
 .zone-carousel-arrow {
@@ -1638,7 +1680,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
   color: white;
   box-shadow: 0 4px 12px rgba(27, 94, 32, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -1687,7 +1729,7 @@
 .zones-carousel {
   display: flex;
   gap: 12px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
   width: max-content;
   box-sizing: border-box;
@@ -1733,7 +1775,7 @@
   padding: 10px;
   border: 2px solid rgba(102, 187, 106, 0.3);
   box-shadow: var(--shadow-md);
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -1743,7 +1785,13 @@
   flex-direction: column;
   flex-shrink: 0;
   min-height: 0;
+  animation: fadeInUp 0.3s ease-out both;
 }
+
+.zones-carousel .zone-item-wrapper:nth-child(1) .zone-container { animation-delay: 0.25s; }
+.zones-carousel .zone-item-wrapper:nth-child(2) .zone-container { animation-delay: 0.3s; }
+.zones-carousel .zone-item-wrapper:nth-child(3) .zone-container { animation-delay: 0.35s; }
+.zones-carousel .zone-item-wrapper:nth-child(4) .zone-container { animation-delay: 0.4s; }
 
 .zone-container:hover {
   box-shadow: var(--shadow-lg);
@@ -1794,7 +1842,7 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -1838,7 +1886,7 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -1859,7 +1907,7 @@
 }
 
 .zone-graph-toggle-icon {
-  transition: transform 0.3s ease;
+  transition: transform 0.15s ease;
   flex-shrink: 0;
 }
 
@@ -1887,7 +1935,7 @@
   height: 0;
   opacity: 0;
   transform: translateY(-30px);
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
   position: relative;
 }
@@ -1896,7 +1944,7 @@
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-  animation: glideDown 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: glideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   height: auto;
   overflow: visible;
 }
@@ -1944,7 +1992,7 @@
   border-radius: 8px;
   padding: 8px;
   border: 1px solid rgba(102, 187, 106, 0.2);
-  transition: all 0.3s ease;
+  transition: all 0.15s ease;
   min-height: 0;
   width: 100%;
   max-width: 100%;

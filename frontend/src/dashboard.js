@@ -212,7 +212,7 @@ function setupZoneGraphToggles() {
             setTimeout(() => {
               graphSection.style.height = 'auto';
               graphSection.style.overflow = 'visible';
-            }, 600);
+            }, 300);
           });
         }
         

@@ -114,6 +114,11 @@ export async function setupApp() {
     setupCropManagementCard();
     setupStatsCarousel();
   }, 100);
+
+  // Setup dashboard on initial load (since createApp() loads the dashboard by default)
+  setTimeout(() => {
+    setupDashboard();
+  }, 150);
 }
 
 export function setupUserPreferences() {
