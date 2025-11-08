@@ -12,12 +12,6 @@ export function createUserPreferencesComponent() {
           </div>
 
           <div class="user-preferences-page">
-            <!-- Next Watering Schedule -->
-            <div class="next-watering-schedule">
-              <p class="schedule-label">Next watering schedule:</p>
-              <p class="schedule-value">--</p>
-            </div>
-
             <!-- Page Title -->
             <div class="preferences-header">
               <h2 class="preferences-subtitle">Your zones</h2>

@@ -2073,7 +2073,124 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Graph Section */
+/* Upcoming Activities Section */
+.upcoming-activities-section {
+  margin: 20px 0;
+  background: transparent;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.upcoming-activities-section::before {
+  display: none;
+}
+
+.upcoming-activities-section > * {
+  position: relative;
+  z-index: 1;
+}
+
+.activities-section-title {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2e7d32, #4caf50, #66bb6a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 12px 0;
+  text-align: left;
+  letter-spacing: 0.5px;
+  padding: 0;
+  align-self: flex-start;
+}
+
+.activities-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  align-items: stretch;
+}
+
+.activity-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--gradient-card);
+  border-radius: 14px;
+  border: 2px solid rgba(102, 187, 106, 0.3);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: auto;
+  flex-shrink: 0;
+}
+
+.activity-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.6s ease;
+}
+
+.activity-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(27, 94, 32, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  border-color: rgba(102, 187, 106, 0.5);
+}
+
+.activity-row:hover::before {
+  left: 100%;
+}
+
+.activity-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--schemes-on-surface);
+  flex: 1;
+}
+
+.activity-icon {
+  font-size: 20px;
+  animation: bounce 2s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
+  flex-shrink: 0;
+}
+
+.activity-value {
+  font-size: 18px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2e7d32, #4caf50, #66bb6a, #81c784);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: right;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
 .graph-section {
   margin: 40px 0;
   background: var(--gradient-card);

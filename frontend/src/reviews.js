@@ -333,6 +333,20 @@ export function createReviewsComponent() {
             </button>
           </div>
 
+          <!-- Upcoming Activities Section -->
+          <div class="upcoming-activities-section">
+            <h2 class="activities-section-title">Upcoming Activities</h2>
+            <div class="activities-table">
+              <div class="activity-row">
+                <div class="activity-label">
+                  <span class="activity-icon">💧</span>
+                  <span>Next watering schedule:</span>
+                </div>
+                <div class="activity-value">--</div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
