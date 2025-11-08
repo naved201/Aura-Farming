@@ -1,69 +1,33 @@
 import './style.css'
 import './navigationRail.css'
 import './reviews.css'
-import './App.css'
+import './userPreferences.css'
+import './app.css'
 import { createApp, setupApp } from './App.js'
-import { createLoginPage, setupLoginPage } from './login.js'
-import { checkAuth } from './auth.js'
 
-// Simple router
-async function router() {
+// Initialize app
+function initApp() {
   const appElement = document.querySelector('#app');
   if (!appElement) {
     console.error('App element not found');
     return;
   }
 
-  // Check if Supabase is loaded
-  if (typeof window.supabase === 'undefined') {
-    console.error('Supabase not loaded. Waiting...');
-    setTimeout(router, 100);
-    return;
-  }
-
-  // Get current path
-  const path = window.location.pathname;
-
   try {
-    // Check authentication
-    const { isAuthenticated } = await checkAuth();
-
-    if (path === '/dashboard' || path === '/dashboard/') {
-      // Dashboard route - requires authentication
-      if (isAuthenticated) {
-        appElement.innerHTML = createApp();
-        setupApp().catch(err => {
-          console.error('Error setting up app:', err);
-        });
-      } else {
-        // Not authenticated, redirect to login
-        window.location.href = '/';
-      }
-    } else {
-      // Root/login route
-      if (isAuthenticated) {
-        // Already logged in, redirect to dashboard
-        window.location.href = '/dashboard';
-      } else {
-        // Show login page
-        appElement.innerHTML = createLoginPage();
-        setupLoginPage();
-      }
-    }
+    // Load the app directly
+    appElement.innerHTML = createApp();
+    setupApp().catch(err => {
+      console.error('Error setting up app:', err);
+    });
   } catch (err) {
-    console.error('Error in router:', err);
-    // On error, show login page
-    appElement.innerHTML = createLoginPage();
-    setupLoginPage();
+    console.error('Error initializing app:', err);
+    appElement.innerHTML = '<div style="padding: 20px; color: red;">Error loading application. Please refresh the page.</div>';
   }
 }
 
-// Handle browser back/forward
-window.addEventListener('popstate', router);
-
-// Start routing
+// Start app
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', router);
+  document.addEventListener('DOMContentLoaded', initApp);
 } else {
-  router();
+  initApp();
 }

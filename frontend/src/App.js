@@ -1,6 +1,10 @@
 import { createNavigationRail, setupNavigationRail } from './navigationRail.js'
 import { createReviewsComponent } from './reviews.js'
-import { protectRoute, logout, getCurrentUser } from './auth.js'
+import { createCropManagementComponent } from './cropManagement.js'
+import { createUserPreferencesComponent } from './userPreferences.js'
+import { createLoadingScreen } from './loading.js'
+import { setupStatsCarousel } from './carousel.js'
+import { setupDashboard } from './dashboard.js'
 
 let currentPage = 'dashboard';
 
@@ -19,35 +23,42 @@ export function navigateTo(page) {
   const contentArea = document.getElementById('app-content');
   if (!contentArea) return;
 
-  currentPage = page;
+  // Show loading screen
+  contentArea.innerHTML = createLoadingScreen();
+  
+  // Simulate loading delay
+  setTimeout(() => {
+    currentPage = page;
 
-  if (page === 'dashboard') {
-    contentArea.innerHTML = createReviewsComponent();
-  } else if (page === 'water') {
-    contentArea.innerHTML = `
-      <div class="water-page">
-        <h1>Water Page</h1>
-        <p>Water management content goes here</p>
-      </div>
-    `;
-  }
+    if (page === 'dashboard') {
+      contentArea.innerHTML = createReviewsComponent();
+      setTimeout(() => {
+        setupDashboard();
+      }, 50);
+    } else if (page === 'user-preferences') {
+      contentArea.innerHTML = createUserPreferencesComponent();
+      setTimeout(() => setupUserPreferences(), 50);
+    } else if (page === 'crop-management') {
+      contentArea.innerHTML = createCropManagementComponent();
+    }
+  }, 200); // 200ms loading delay for faster navigation
+}
+
+export function setupCropManagementCard() {
+  const cropManagementHeroCard = document.querySelector('.crop-management-hero-card');
+  if (!cropManagementHeroCard) return;
+
+  cropManagementHeroCard.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigateTo('crop-management');
+    
+    // Update navigation active state
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(nav => nav.classList.remove('active'));
+  });
 }
 
 export async function setupApp() {
-  // Protect the route - check if user is authenticated
-  const isAuthenticated = await protectRoute();
-  if (!isAuthenticated) {
-    return; // User will be redirected to login
-  }
-
-  // Get current user info (optional - for displaying user data)
-  try {
-    const user = await getCurrentUser();
-    console.log('Logged in as:', user?.email);
-  } catch (err) {
-    console.error('Error getting user:', err);
-  }
-
   // Set up navigation with our router
   const navItems = document.querySelectorAll('.nav-item');
   
@@ -64,17 +75,13 @@ export async function setupApp() {
       // Handle navigation
       if (route === 'dashboard') {
         navigateTo('dashboard');
-      } else if (route === 'water') {
-        navigateTo('water');
+      } else if (route === 'user-preferences') {
+        navigateTo('user-preferences');
       } else if (route === 'logout') {
         if (confirm('Are you sure you want to logout?')) {
-          try {
-            await logout();
-            // logout() will redirect to login page
-          } catch (err) {
-            console.error('Logout error:', err);
-            alert('Error logging out. Please try again.');
-          }
+          console.log('Logging out...');
+          // Add logout logic here
+          // window.location.href = '/login';
         }
       }
     });
@@ -84,6 +91,62 @@ export async function setupApp() {
   const dashboardItem = document.querySelector('.nav-item[data-route="dashboard"]');
   if (dashboardItem) {
     dashboardItem.classList.add('active');
+  }
+
+  // Setup crop management card and carousel
+  setTimeout(() => {
+    setupCropManagementCard();
+    setupStatsCarousel();
+  }, 100);
+}
+
+export function setupUserPreferences() {
+  // Zone button selection
+  const zoneButtons = document.querySelectorAll('.zone-button');
+  zoneButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      zoneButtons.forEach(b => {
+        b.classList.remove('zone-button-active');
+        b.classList.add('zone-button-inactive');
+      });
+      btn.classList.remove('zone-button-inactive');
+      btn.classList.add('zone-button-active');
+    });
+  });
+
+  // Add zone button
+  const addZoneBtn = document.getElementById('add-zone-btn');
+  const zoneConfigForm = document.getElementById('zone-config-form');
+  
+  if (addZoneBtn && zoneConfigForm) {
+    addZoneBtn.addEventListener('click', () => {
+      zoneConfigForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+
+  // Form actions
+  const saveBtn = document.getElementById('save-zone-btn');
+  const cancelBtn = document.getElementById('cancel-zone-btn');
+  
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      alert('Zone saved successfully!');
+    });
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      const form = document.getElementById('zone-config-form');
+      if (form) {
+        form.querySelectorAll('input').forEach(input => {
+          if (input.type === 'checkbox') {
+            input.checked = false;
+          } else {
+            input.value = '';
+          }
+        });
+      }
+    });
   }
 }
 
