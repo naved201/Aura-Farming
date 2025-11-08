@@ -1,5 +1,6 @@
 import { createNavigationRail, setupNavigationRail } from './navigationRail.js'
 import { createReviewsComponent } from './reviews.js'
+import { protectRoute, logout, getCurrentUser } from './auth.js'
 
 let currentPage = 'dashboard';
 
@@ -32,12 +33,26 @@ export function navigateTo(page) {
   }
 }
 
-export function setupApp() {
+export async function setupApp() {
+  // Protect the route - check if user is authenticated
+  const isAuthenticated = await protectRoute();
+  if (!isAuthenticated) {
+    return; // User will be redirected to login
+  }
+
+  // Get current user info (optional - for displaying user data)
+  try {
+    const user = await getCurrentUser();
+    console.log('Logged in as:', user?.email);
+  } catch (err) {
+    console.error('Error getting user:', err);
+  }
+
   // Set up navigation with our router
   const navItems = document.querySelectorAll('.nav-item');
   
   navItems.forEach(item => {
-    item.addEventListener('click', (e) => {
+    item.addEventListener('click', async (e) => {
       e.preventDefault();
       const route = item.getAttribute('data-route');
       
@@ -53,8 +68,13 @@ export function setupApp() {
         navigateTo('water');
       } else if (route === 'logout') {
         if (confirm('Are you sure you want to logout?')) {
-          console.log('Logging out...');
-          // window.location.href = '/login';
+          try {
+            await logout();
+            // logout() will redirect to login page
+          } catch (err) {
+            console.error('Logout error:', err);
+            alert('Error logging out. Please try again.');
+          }
         }
       }
     });
