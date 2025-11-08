@@ -1,6 +1,7 @@
 import './style.css'
 import './navigationRail.css'
 import './reviews.css'
+import './userPreferences.css'
 import './App.css'
 import { createApp, setupApp } from './App.js'
 import { createLoginPage, setupLoginPage } from './login.js'
