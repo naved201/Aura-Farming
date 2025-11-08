@@ -232,9 +232,11 @@
   gap: 16px;
   align-items: flex-start;
   width: 100%;
+  max-width: 100%;
   min-height: 100%;
   padding: 0 24px 24px 24px;
-  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-y: visible;
   box-sizing: border-box;
 }
 
@@ -1613,17 +1615,17 @@
 /* Zones Carousel Section */
 .zones-carousel-section {
   display: flex;
-  align-items: stretch;
-  gap: 10px;
-  margin: 10px 0;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0;
   position: relative;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  height: calc(100vh - 500px);
-  min-height: 350px;
-  max-height: calc(100vh - 500px);
+  min-height: 280px;
   flex-shrink: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 .zone-carousel-arrow {
@@ -1673,12 +1675,13 @@
 
 .zones-carousel-wrapper {
   flex: 1;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: visible;
   position: relative;
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  height: 100%;
+  box-sizing: border-box;
 }
 
 .zones-carousel {
@@ -1687,18 +1690,33 @@
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
   width: max-content;
-  height: 100%;
+  box-sizing: border-box;
+  align-items: flex-start;
 }
 
-.zones-carousel .zone-container {
-  flex: 0 0 100%;
+.zones-carousel .zone-item-wrapper {
+  flex: 0 0 auto;
   width: 100%;
   min-width: 0;
   max-width: 100%;
   margin: 0;
+  padding: 0;
   box-sizing: border-box;
   flex-shrink: 0;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: visible;
+  align-items: stretch;
+}
+
+.zones-carousel .zone-container {
+  width: 100%;
+  max-width: 100%;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: visible;
 }
 
 /* Zones Dashboard (fallback) */
@@ -1711,18 +1729,20 @@
 
 .zone-container {
   background: var(--gradient-card);
-  border-radius: 14px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 10px;
   border: 2px solid rgba(102, 187, 106, 0.3);
   box-shadow: var(--shadow-md);
   transition: all 0.3s ease;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  overflow: hidden;
-  height: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
 }
 
 .zone-container:hover {
@@ -1735,7 +1755,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   flex-shrink: 0;
 }
 
@@ -1746,7 +1766,7 @@
 }
 
 .zone-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   background: var(--gradient-nature);
   -webkit-background-clip: text;
@@ -1793,18 +1813,145 @@
 .zone-data-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: 8px;
+  flex: 0 0 auto;
+  overflow-x: hidden;
+  overflow-y: visible;
+  margin-bottom: 8px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Zone Graph Toggle Button */
+.zone-graph-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  margin-top: 6px;
+  background: rgba(102, 187, 106, 0.1);
+  border: 2px solid rgba(102, 187, 106, 0.3);
+  border-radius: 8px;
+  color: var(--eco-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.zone-graph-toggle:hover {
+  background: rgba(102, 187, 106, 0.2);
+  border-color: rgba(102, 187, 106, 0.5);
+  transform: translateY(-1px);
+}
+
+.zone-graph-toggle.active {
+  background: rgba(102, 187, 106, 0.2);
+  border-color: rgba(102, 187, 106, 0.6);
+}
+
+.zone-graph-toggle-text {
   flex: 1;
-  overflow-y: auto;
+  text-align: left;
+}
+
+.zone-graph-toggle-icon {
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.zone-graph-toggle.active .zone-graph-toggle-icon {
+  transform: rotate(180deg);
+}
+
+.zone-graph-toggle.active .zone-graph-toggle-text {
+  content: 'Hide Graph';
+}
+
+/* Zone Graph Section */
+.zone-graph-section {
+  width: 100%;
+  max-width: 100%;
+  margin: 24px 0 0 0;
+  padding: 0;
+  background: var(--gradient-card);
+  border-radius: 10px;
+  border: 2px solid rgba(102, 187, 106, 0.3);
+  box-shadow: var(--shadow-md);
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  height: 0;
+  opacity: 0;
+  transform: translateY(-30px);
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  position: relative;
+}
+
+.zone-graph-section.expanded {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  animation: glideDown 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  height: auto;
+  overflow: visible;
+}
+
+@keyframes glideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.zone-graph-section-inner {
+  padding: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+  max-height: none;
+}
+
+.zone-graph-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 8px;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.zone-moisture-graph {
+  width: 100%;
+  max-width: 100%;
+  height: 150px;
+  display: block;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  box-sizing: border-box;
 }
 
 .data-panel {
   background: rgba(255, 255, 255, 0.7);
-  border-radius: 10px;
-  padding: 10px;
+  border-radius: 8px;
+  padding: 8px;
   border: 1px solid rgba(102, 187, 106, 0.2);
   transition: all 0.3s ease;
   min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .data-panel:hover {
@@ -1814,25 +1961,25 @@
 }
 
 .data-panel-title {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--schemes-on-surface);
-  margin: 0 0 6px 0;
+  margin: 0 0 4px 0;
 }
 
 .data-panel-subtitle {
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(29, 27, 32, 0.6);
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   font-style: italic;
 }
 
 .data-panel-content {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .data-value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--eco-primary);
   margin: 0;
@@ -1919,9 +2066,10 @@
 .graph-legend {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding-top: 20px;
+  gap: 4px;
+  padding-top: 8px;
   border-top: 1px solid rgba(102, 187, 106, 0.2);
+  font-size: 10px;
 }
 
 .legend-item {

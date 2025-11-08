@@ -1,7 +1,4 @@
 export function setupDashboard() {
-  // Setup graph
-  setupMoistureGraph();
-  
   // Setup zones carousel
   setupZonesCarousel();
   
@@ -16,6 +13,9 @@ export function setupDashboard() {
       // Add actual update logic here
     });
   });
+
+  // Setup zone graph toggles
+  setupZoneGraphToggles();
 }
 
 function setupZonesCarousel() {
@@ -30,7 +30,7 @@ function setupZonesCarousel() {
 
   // Store carousel state
   let currentIndex = 0;
-  let zones = carousel.querySelectorAll('.zone-container');
+  let zones = carousel.querySelectorAll('.zone-item-wrapper');
   const totalZones = zones.length;
   
   if (totalZones === 0) {
@@ -39,7 +39,7 @@ function setupZonesCarousel() {
   }
 
   function updateCarousel() {
-    zones = carousel.querySelectorAll('.zone-container');
+    zones = carousel.querySelectorAll('.zone-item-wrapper');
     if (zones.length === 0) {
       setTimeout(updateCarousel, 100);
       return;
@@ -57,12 +57,20 @@ function setupZonesCarousel() {
       return;
     }
     
-    // Get the actual width of the wrapper (visible area)
+    // Get the gap from computed styles
     const carouselStyle = window.getComputedStyle(carousel);
-    const gapValue = carouselStyle.gap || '10px';
-    const gap = parseInt(gapValue) || 10;
+    const gapValue = carouselStyle.gap || '12px';
+    const gap = parseFloat(gapValue) || 12;
     
-    // Use wrapper width directly since each zone is 100% of wrapper
+    // Set each zone to be exactly the wrapper width
+    zones.forEach((zone, index) => {
+      zone.style.width = wrapperWidth + 'px';
+      zone.style.minWidth = wrapperWidth + 'px';
+      zone.style.maxWidth = wrapperWidth + 'px';
+      zone.style.flexBasis = wrapperWidth + 'px';
+    });
+    
+    // Calculate transform: each zone is wrapperWidth + gap (except last one)
     const translateX = -currentIndex * (wrapperWidth + gap);
     
     carousel.style.transform = `translateX(${translateX}px)`;
@@ -144,28 +152,124 @@ function setupZonesCarousel() {
   };
 }
 
-function setupMoistureGraph() {
-  const canvas = document.getElementById('moisture-graph');
-  if (!canvas) {
-    setTimeout(setupMoistureGraph, 100);
-    return;
-  }
+function setupZoneGraphToggles() {
+  const toggleButtons = document.querySelectorAll('.zone-graph-toggle');
+  
+  toggleButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const zoneNumber = button.getAttribute('data-zone');
+      const graphSection = document.querySelector(`.zone-graph-section[data-zone="${zoneNumber}"]`);
+      
+      if (!graphSection) return;
+      
+      const isExpanded = graphSection.classList.contains('expanded');
+      
+      if (isExpanded) {
+        // Collapse - smooth glide up
+        const inner = graphSection.querySelector('.zone-graph-section-inner');
+        if (inner) {
+          // Get current height (use offsetHeight if style is auto)
+          const currentHeight = graphSection.style.height === 'auto' 
+            ? graphSection.offsetHeight 
+            : parseInt(graphSection.style.height) || graphSection.scrollHeight;
+          graphSection.style.height = currentHeight + 'px';
+          graphSection.style.overflow = 'hidden';
+          // Force reflow
+          graphSection.offsetHeight;
+          requestAnimationFrame(() => {
+            graphSection.style.height = '0px';
+          });
+        }
+        graphSection.classList.remove('expanded');
+        button.classList.remove('active');
+        button.querySelector('.zone-graph-toggle-text').textContent = 'View Graph';
+      } else {
+        // Expand - smooth glide down
+        graphSection.classList.add('expanded');
+        button.classList.add('active');
+        button.querySelector('.zone-graph-toggle-text').textContent = 'Hide Graph';
+        
+        // Measure and set height for smooth transition
+        const inner = graphSection.querySelector('.zone-graph-section-inner');
+        if (inner) {
+          // Temporarily set to auto to measure actual content height
+          graphSection.style.height = 'auto';
+          graphSection.style.overflow = 'visible';
+          const targetHeight = inner.scrollHeight + 24; // Add padding for border
+          graphSection.style.height = '0px';
+          graphSection.style.overflow = 'hidden';
+          
+          // Force reflow
+          graphSection.offsetHeight;
+          
+          // Animate to target height
+          requestAnimationFrame(() => {
+            graphSection.style.height = targetHeight + 'px';
+            // After animation completes, allow natural height
+            setTimeout(() => {
+              graphSection.style.height = 'auto';
+              graphSection.style.overflow = 'visible';
+            }, 600);
+          });
+        }
+        
+        // Initialize/reinitialize graph for this zone to ensure correct sizing
+        const canvas = graphSection.querySelector('.zone-moisture-graph');
+        if (canvas) {
+          // Wait for the transition to start before calculating size
+          setTimeout(() => {
+            setupZoneMoistureGraph(canvas, zoneNumber);
+          }, 100);
+        }
+      }
+    });
+  });
+}
 
-  // Wait for canvas to be properly sized
+function setupZoneMoistureGraph(canvas, zoneNumber) {
+  if (!canvas) return;
+
+  // Wait for canvas to be properly sized and visible
   setTimeout(() => {
     const ctx = canvas.getContext('2d');
     const container = canvas.parentElement;
-    const width = container?.offsetWidth || 800;
-    const height = 300;
-    canvas.width = width;
-    canvas.height = height;
+    // Get the actual available width, accounting for padding
+    const graphSection = canvas.closest('.zone-graph-section');
+    if (!graphSection) return;
+    
+    // Get computed styles to account for padding
+    const sectionStyle = window.getComputedStyle(graphSection);
+    const sectionWidth = graphSection.offsetWidth;
+    const sectionPaddingLeft = parseFloat(sectionStyle.paddingLeft) || 12;
+    const sectionPaddingRight = parseFloat(sectionStyle.paddingRight) || 12;
+    const width = sectionWidth - sectionPaddingLeft - sectionPaddingRight;
+    const height = 150;
+    
+    // Ensure minimum width
+    if (width <= 0) {
+      console.warn('Graph section width is invalid, using fallback');
+      return;
+    }
+    
+    // Set canvas size (device pixel ratio for crisp rendering)
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = width + 'px';
+    canvas.style.height = height + 'px';
+    
+    // Scale context for high DPI displays
+    ctx.scale(dpr, dpr);
 
-  // Set up graph area
-  const padding = { top: 40, right: 40, bottom: 60, left: 60 };
+  // Set up graph area (use the CSS width, not the scaled width)
+  const padding = { top: 20, right: 20, bottom: 30, left: 40 };
   const graphWidth = width - padding.left - padding.right;
   const graphHeight = height - padding.top - padding.bottom;
 
-  // Clear canvas
+  // Clear canvas (after scaling, use the logical dimensions)
   ctx.clearRect(0, 0, width, height);
 
   // Draw axes
@@ -274,32 +378,37 @@ function setupMoistureGraph() {
 
   // Draw axis labels
   ctx.fillStyle = '#666';
-  ctx.font = '12px sans-serif';
+  ctx.font = '11px sans-serif';
   ctx.textAlign = 'center';
   
   // X-axis labels (hours)
   for (let i = 0; i <= 6; i++) {
     const x = padding.left + (graphWidth / 6) * i;
     const hour = Math.round((i / 6) * hours);
-    ctx.fillText(hour.toString(), x, height - padding.bottom + 20);
+    ctx.fillText(hour.toString(), x, height - padding.bottom + 15);
   }
 
     // Y-axis labels (moisture)
     ctx.textAlign = 'right';
+    ctx.font = '11px sans-serif';
     for (let i = 0; i <= 5; i++) {
       const y = padding.top + (graphHeight / 5) * (5 - i);
       const value = Math.round((i / 5) * 100);
-      ctx.fillText(value.toString(), padding.left - 10, y + 4);
+      ctx.fillText(value.toString(), padding.left - 8, y + 3);
     }
-  }, 200);
+  }, 100);
   
-  // Handle window resize
+  // Handle window resize for this specific canvas
   let resizeTimeout;
-  window.addEventListener('resize', () => {
+  const resizeHandler = () => {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
-      setupMoistureGraph();
+      if (canvas.offsetParent !== null) { // Only if visible
+        setupZoneMoistureGraph(canvas, zoneNumber);
+      }
     }, 200);
-  });
+  };
+  
+  window.addEventListener('resize', resizeHandler);
 }
 
