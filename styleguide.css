@@ -1,0 +1,360 @@
+:root {
+  --m-3white: rgba(255, 255, 255, 1);
+  --m3-headline-medium-emphasized-font-family: "Roboto", Helvetica;
+  --m3-headline-medium-emphasized-font-weight: 500;
+  --m3-headline-medium-emphasized-font-size: 28px;
+  --m3-headline-medium-emphasized-letter-spacing: 0px;
+  --m3-headline-medium-emphasized-line-height: 36px;
+  --m3-headline-medium-emphasized-font-style: normal;
+  --m3-label-large-font-family: "Roboto", Helvetica;
+  --m3-label-large-font-weight: 500;
+  --m3-label-large-font-size: 14px;
+  --m3-label-large-letter-spacing: 0.10000000149011612px;
+  --m3-label-large-line-height: 20px;
+  --m3-label-large-font-style: normal;
+  --m3-body-large-font-family: "Roboto", Helvetica;
+  --m3-body-large-font-weight: 400;
+  --m3-body-large-font-size: 16px;
+  --m3-body-large-letter-spacing: 0.5px;
+  --m3-body-large-line-height: 24px;
+  --m3-body-large-font-style: normal;
+  --m3-schemes-on-surface: rgba(29, 27, 32, 1);
+  --m3-schemes-primary: rgba(103, 80, 164, 1);
+  --m3-schemes-outline: rgba(121, 116, 126, 1);
+  --m3-schemes-surface-container: rgba(243, 237, 247, 1);
+  --m3-schemes-surface: rgba(254, 247, 255, 1);
+  --m3-schemes-surface-container-high: rgba(236, 230, 240, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+/*
+
+To enable a theme in your HTML, simply add one of the following data attributes to an HTML element, like so:
+
+<body data-m3-mode="light">
+    <!-- the rest of your content -->
+</body>
+
+You can apply the theme on any DOM node, not just the `body`
+
+*/
+
+[data-m3-mode="light"] {
+  --m3-schemes-on-surface: rgba(29, 27, 32, 1);
+  --m3-schemes-primary: rgba(103, 80, 164, 1);
+  --m3-schemes-outline: rgba(121, 116, 126, 1);
+  --m3-schemes-surface-container: rgba(243, 237, 247, 1);
+  --m3-schemes-surface: rgba(254, 247, 255, 1);
+  --m3-schemes-surface-container-high: rgba(236, 230, 240, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="light-high-contrast"] {
+  --m3-schemes-on-surface: rgba(0, 0, 0, 1);
+  --m3-schemes-primary: rgba(39, 23, 78, 1);
+  --m3-schemes-outline: rgba(69, 65, 74, 1);
+  --m3-schemes-surface-container: rgba(242, 236, 244, 1);
+  --m3-schemes-surface: rgba(253, 247, 255, 1);
+  --m3-schemes-surface-container-high: rgba(236, 230, 238, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="light-medium-contrast"] {
+  --m3-schemes-on-surface: rgba(29, 27, 32, 1);
+  --m3-schemes-primary: rgba(73, 57, 113, 1);
+  --m3-schemes-outline: rgba(97, 93, 103, 1);
+  --m3-schemes-surface-container: rgba(242, 236, 244, 1);
+  --m3-schemes-surface: rgba(253, 247, 255, 1);
+  --m3-schemes-surface-container-high: rgba(236, 230, 238, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="dark"] {
+  --m3-schemes-on-surface: rgba(230, 224, 233, 1);
+  --m3-schemes-primary: rgba(208, 188, 255, 1);
+  --m3-schemes-outline: rgba(147, 143, 153, 1);
+  --m3-schemes-surface-container: rgba(33, 31, 38, 1);
+  --m3-schemes-surface: rgba(20, 18, 24, 1);
+  --m3-schemes-surface-container-high: rgba(43, 41, 48, 1);
+  --m3-schemes-surface-container-lowest: rgba(15, 13, 19, 1);
+}
+
+[data-m3-mode="dark-high-contrast"] {
+  --m3-schemes-on-surface: rgba(255, 255, 255, 1);
+  --m3-schemes-primary: rgba(255, 249, 255, 1);
+  --m3-schemes-outline: rgba(206, 200, 212, 1);
+  --m3-schemes-surface-container: rgba(33, 31, 36, 1);
+  --m3-schemes-surface: rgba(20, 18, 24, 1);
+  --m3-schemes-surface-container-high: rgba(43, 41, 47, 1);
+  --m3-schemes-surface-container-lowest: rgba(15, 13, 19, 1);
+}
+
+[data-m3-mode="dark-medium-contrast"] {
+  --m3-schemes-on-surface: rgba(255, 249, 255, 1);
+  --m3-schemes-primary: rgba(211, 193, 255, 1);
+  --m3-schemes-outline: rgba(166, 161, 171, 1);
+  --m3-schemes-surface-container: rgba(33, 31, 36, 1);
+  --m3-schemes-surface: rgba(20, 18, 24, 1);
+  --m3-schemes-surface-container-high: rgba(43, 41, 47, 1);
+  --m3-schemes-surface-container-lowest: rgba(15, 13, 19, 1);
+}
+
+[data-m3-mode="monochrome-LT"] {
+  --m3-schemes-on-surface: rgba(27, 27, 27, 1);
+  --m3-schemes-primary: rgba(0, 0, 0, 1);
+  --m3-schemes-outline: rgba(119, 119, 119, 1);
+  --m3-schemes-surface-container: rgba(238, 238, 238, 1);
+  --m3-schemes-surface: rgba(249, 249, 249, 1);
+  --m3-schemes-surface-container-high: rgba(232, 232, 232, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="monochrome-DT"] {
+  --m3-schemes-on-surface: rgba(226, 226, 226, 1);
+  --m3-schemes-primary: rgba(255, 255, 255, 1);
+  --m3-schemes-outline: rgba(145, 145, 145, 1);
+  --m3-schemes-surface-container: rgba(31, 31, 31, 1);
+  --m3-schemes-surface: rgba(19, 19, 19, 1);
+  --m3-schemes-surface-container-high: rgba(42, 42, 42, 1);
+  --m3-schemes-surface-container-lowest: rgba(14, 14, 14, 1);
+}
+
+[data-m3-mode="pink-LT"] {
+  --m3-schemes-on-surface: rgba(33, 25, 28, 1);
+  --m3-schemes-primary: rgba(138, 75, 104, 1);
+  --m3-schemes-outline: rgba(130, 115, 120, 1);
+  --m3-schemes-surface-container: rgba(250, 234, 238, 1);
+  --m3-schemes-surface: rgba(255, 248, 248, 1);
+  --m3-schemes-surface-container-high: rgba(244, 228, 232, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="pink-DT"] {
+  --m3-schemes-on-surface: rgba(238, 223, 227, 1);
+  --m3-schemes-primary: rgba(254, 176, 209, 1);
+  --m3-schemes-outline: rgba(157, 140, 146, 1);
+  --m3-schemes-surface-container: rgba(37, 29, 32, 1);
+  --m3-schemes-surface: rgba(25, 17, 20, 1);
+  --m3-schemes-surface-container-high: rgba(48, 40, 43, 1);
+  --m3-schemes-surface-container-lowest: rgba(19, 12, 15, 1);
+}
+
+[data-m3-mode="rose-LT"] {
+  --m3-schemes-on-surface: rgba(34, 25, 26, 1);
+  --m3-schemes-primary: rgba(143, 74, 86, 1);
+  --m3-schemes-outline: rgba(132, 115, 116, 1);
+  --m3-schemes-surface-container: rgba(251, 234, 235, 1);
+  --m3-schemes-surface: rgba(255, 248, 247, 1);
+  --m3-schemes-surface-container-high: rgba(246, 228, 229, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="rose-DT"] {
+  --m3-schemes-on-surface: rgba(240, 222, 223, 1);
+  --m3-schemes-primary: rgba(255, 178, 189, 1);
+  --m3-schemes-outline: rgba(159, 140, 142, 1);
+  --m3-schemes-surface-container: rgba(38, 29, 30, 1);
+  --m3-schemes-surface: rgba(25, 17, 18, 1);
+  --m3-schemes-surface-container-high: rgba(49, 40, 41, 1);
+  --m3-schemes-surface-container-lowest: rgba(20, 12, 13, 1);
+}
+
+[data-m3-mode="red-LT"] {
+  --m3-schemes-on-surface: rgba(35, 25, 24, 1);
+  --m3-schemes-primary: rgba(145, 75, 67, 1);
+  --m3-schemes-outline: rgba(133, 115, 112, 1);
+  --m3-schemes-surface-container: rgba(252, 234, 231, 1);
+  --m3-schemes-surface: rgba(255, 248, 247, 1);
+  --m3-schemes-surface-container-high: rgba(247, 228, 226, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="red-DT"] {
+  --m3-schemes-on-surface: rgba(241, 222, 220, 1);
+  --m3-schemes-primary: rgba(255, 167, 155, 1);
+  --m3-schemes-outline: rgba(160, 140, 138, 1);
+  --m3-schemes-surface-container: rgba(39, 29, 28, 1);
+  --m3-schemes-surface: rgba(26, 17, 16, 1);
+  --m3-schemes-surface-container-high: rgba(50, 40, 38, 1);
+  --m3-schemes-surface-container-lowest: rgba(20, 12, 11, 1);
+}
+
+[data-m3-mode="orange-LT"] {
+  --m3-schemes-on-surface: rgba(34, 26, 21, 1);
+  --m3-schemes-primary: rgba(141, 79, 40, 1);
+  --m3-schemes-outline: rgba(133, 116, 107, 1);
+  --m3-schemes-surface-container: rgba(252, 234, 226, 1);
+  --m3-schemes-surface: rgba(255, 248, 245, 1);
+  --m3-schemes-surface-container-high: rgba(246, 229, 221, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="orange-DT"] {
+  --m3-schemes-on-surface: rgba(240, 223, 215, 1);
+  --m3-schemes-primary: rgba(255, 182, 140, 1);
+  --m3-schemes-outline: rgba(127, 118, 103, 1);
+  --m3-schemes-surface-container: rgba(39, 30, 25, 1);
+  --m3-schemes-surface: rgba(26, 18, 13, 1);
+  --m3-schemes-surface-container-high: rgba(49, 40, 35, 1);
+  --m3-schemes-surface-container-lowest: rgba(20, 13, 8, 1);
+}
+
+[data-m3-mode="yellow-LT"] {
+  --m3-schemes-on-surface: rgba(31, 27, 19, 1);
+  --m3-schemes-primary: rgba(121, 90, 12, 1);
+  --m3-schemes-outline: rgba(127, 118, 103, 1);
+  --m3-schemes-surface-container: rgba(247, 236, 223, 1);
+  --m3-schemes-surface: rgba(255, 248, 242, 1);
+  --m3-schemes-surface-container-high: rgba(241, 231, 217, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="yellow-DT"] {
+  --m3-schemes-on-surface: rgba(235, 225, 212, 1);
+  --m3-schemes-primary: rgba(233, 193, 108, 1);
+  --m3-schemes-outline: rgba(153, 144, 128, 1);
+  --m3-schemes-surface-container: rgba(36, 31, 23, 1);
+  --m3-schemes-surface: rgba(23, 19, 11, 1);
+  --m3-schemes-surface-container-high: rgba(46, 41, 33, 1);
+  --m3-schemes-surface-container-lowest: rgba(17, 14, 7, 1);
+}
+
+[data-m3-mode="chartreuse-LT"] {
+  --m3-schemes-on-surface: rgba(27, 28, 20, 1);
+  --m3-schemes-primary: rgba(92, 100, 30, 1);
+  --m3-schemes-outline: rgba(120, 120, 106, 1);
+  --m3-schemes-surface-container: rgba(240, 238, 225, 1);
+  --m3-schemes-surface: rgba(252, 250, 237, 1);
+  --m3-schemes-surface-container-high: rgba(234, 233, 220, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="chartreuse-DT"] {
+  --m3-schemes-on-surface: rgba(229, 227, 214, 1);
+  --m3-schemes-primary: rgba(195, 205, 124, 1);
+  --m3-schemes-outline: rgba(145, 146, 130, 1);
+  --m3-schemes-surface-container: rgba(32, 32, 24, 1);
+  --m3-schemes-surface: rgba(19, 20, 13, 1);
+  --m3-schemes-surface-container-high: rgba(42, 43, 34, 1);
+  --m3-schemes-surface-container-lowest: rgba(14, 15, 8, 1);
+}
+
+[data-m3-mode="green-LT"] {
+  --m3-schemes-on-surface: rgba(24, 29, 24, 1);
+  --m3-schemes-primary: rgba(55, 106, 62, 1);
+  --m3-schemes-outline: rgba(113, 121, 112, 1);
+  --m3-schemes-surface-container: rgba(235, 239, 231, 1);
+  --m3-schemes-surface: rgba(247, 251, 242, 1);
+  --m3-schemes-surface-container-high: rgba(229, 233, 225, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="green-DT"] {
+  --m3-schemes-on-surface: rgba(224, 228, 219, 1);
+  --m3-schemes-primary: rgba(156, 212, 159, 1);
+  --m3-schemes-outline: rgba(145, 146, 130, 1);
+  --m3-schemes-surface-container: rgba(28, 33, 28, 1);
+  --m3-schemes-surface: rgba(16, 21, 16, 1);
+  --m3-schemes-surface-container-high: rgba(39, 43, 38, 1);
+  --m3-schemes-surface-container-lowest: rgba(11, 15, 11, 1);
+}
+
+[data-m3-mode="teal-LT"] {
+  --m3-schemes-on-surface: rgba(23, 29, 27, 1);
+  --m3-schemes-primary: rgba(0, 107, 96, 1);
+  --m3-schemes-outline: rgba(111, 121, 118, 1);
+  --m3-schemes-surface-container: rgba(233, 239, 236, 1);
+  --m3-schemes-surface: rgba(244, 251, 248, 1);
+  --m3-schemes-surface-container-high: rgba(227, 234, 231, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="teal-DT"] {
+  --m3-schemes-on-surface: rgba(221, 228, 225, 1);
+  --m3-schemes-primary: rgba(130, 213, 199, 1);
+  --m3-schemes-outline: rgba(136, 147, 143, 1);
+  --m3-schemes-surface-container: rgba(26, 33, 31, 1);
+  --m3-schemes-surface: rgba(14, 21, 19, 1);
+  --m3-schemes-surface-container-high: rgba(37, 43, 42, 1);
+  --m3-schemes-surface-container-lowest: rgba(9, 15, 14, 1);
+}
+
+[data-m3-mode="cyan-LT"] {
+  --m3-schemes-on-surface: rgba(23, 28, 30, 1);
+  --m3-schemes-primary: rgba(1, 104, 125, 1);
+  --m3-schemes-outline: rgba(112, 120, 124, 1);
+  --m3-schemes-surface-container: rgba(234, 239, 241, 1);
+  --m3-schemes-surface: rgba(245, 250, 253, 1);
+  --m3-schemes-surface-container-high: rgba(228, 233, 235, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="cyan-DT"] {
+  --m3-schemes-on-surface: rgba(222, 227, 230, 1);
+  --m3-schemes-primary: rgba(134, 209, 234, 1);
+  --m3-schemes-outline: rgba(138, 146, 149, 1);
+  --m3-schemes-surface-container: rgba(27, 32, 34, 1);
+  --m3-schemes-surface: rgba(15, 20, 22, 1);
+  --m3-schemes-surface-container-high: rgba(37, 43, 45, 1);
+  --m3-schemes-surface-container-lowest: rgba(9, 15, 17, 1);
+}
+
+[data-m3-mode="blue-LT"] {
+  --m3-schemes-on-surface: rgba(26, 27, 33, 1);
+  --m3-schemes-primary: rgba(72, 94, 146, 1);
+  --m3-schemes-outline: rgba(117, 119, 128, 1);
+  --m3-schemes-surface-container: rgba(238, 237, 244, 1);
+  --m3-schemes-surface: rgba(250, 248, 255, 1);
+  --m3-schemes-surface-container-high: rgba(232, 231, 239, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="blue-DT"] {
+  --m3-schemes-on-surface: rgba(226, 226, 233, 1);
+  --m3-schemes-primary: rgba(176, 198, 255, 1);
+  --m3-schemes-outline: rgba(143, 144, 154, 1);
+  --m3-schemes-surface-container: rgba(30, 31, 37, 1);
+  --m3-schemes-surface: rgba(18, 19, 24, 1);
+  --m3-schemes-surface-container-high: rgba(40, 42, 47, 1);
+  --m3-schemes-surface-container-lowest: rgba(12, 14, 19, 1);
+}
+
+[data-m3-mode="indigo-LT"] {
+  --m3-schemes-on-surface: rgba(28, 27, 33, 1);
+  --m3-schemes-primary: rgba(91, 89, 146, 1);
+  --m3-schemes-outline: rgba(120, 118, 128, 1);
+  --m3-schemes-surface-container: rgba(240, 236, 244, 1);
+  --m3-schemes-surface: rgba(252, 248, 255, 1);
+  --m3-schemes-surface-container-high: rgba(234, 231, 239, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="indigo-DT"] {
+  --m3-schemes-on-surface: rgba(229, 225, 233, 1);
+  --m3-schemes-primary: rgba(197, 192, 255, 1);
+  --m3-schemes-outline: rgba(145, 143, 154, 1);
+  --m3-schemes-surface-container: rgba(32, 31, 37, 1);
+  --m3-schemes-surface: rgba(19, 19, 24, 1);
+  --m3-schemes-surface-container-high: rgba(42, 41, 47, 1);
+  --m3-schemes-surface-container-lowest: rgba(14, 14, 19, 1);
+}
+
+[data-m3-mode="purple-LT"] {
+  --m3-schemes-on-surface: rgba(29, 26, 32, 1);
+  --m3-schemes-primary: rgba(107, 84, 141, 1);
+  --m3-schemes-outline: rgba(122, 117, 127, 1);
+  --m3-schemes-surface-container: rgba(243, 236, 244, 1);
+  --m3-schemes-surface: rgba(254, 247, 255, 1);
+  --m3-schemes-surface-container-high: rgba(237, 230, 238, 1);
+  --m3-schemes-surface-container-lowest: rgba(255, 255, 255, 1);
+}
+
+[data-m3-mode="purple-DT"] {
+  --m3-schemes-on-surface: rgba(231, 224, 232, 1);
+  --m3-schemes-primary: rgba(214, 187, 251, 1);
+  --m3-schemes-outline: rgba(149, 142, 153, 1);
+  --m3-schemes-surface-container: rgba(33, 30, 36, 1);
+  --m3-schemes-surface: rgba(21, 18, 24, 1);
+  --m3-schemes-surface-container-high: rgba(44, 41, 47, 1);
+  --m3-schemes-surface-container-lowest: rgba(16, 13, 18, 1);
+}
