@@ -18,11 +18,15 @@ export function createUserPreferencesComponent() {
             </div>
 
             <!-- Zone List -->
-            <div class="zones-list">
+            <div class="zones-list" id="zones-list">
+              <!-- Fetched zones from database will be inserted here -->
+              <div id="database-zones-container"></div>
+              
+              <!-- Hardcoded zones (shown below database zones) -->
               <div class="zone-button zone-button-inactive" data-zone="1">
                 Zone 1
               </div>
-              <div class="zone-button zone-button-active" data-zone="2">
+              <div class="zone-button zone-button-inactive" data-zone="2">
                 Zone 2
               </div>
               <div class="zone-button zone-button-inactive" data-zone="3">
@@ -31,6 +35,7 @@ export function createUserPreferencesComponent() {
               <div class="zone-button zone-button-inactive" data-zone="4">
                 Zone 4
               </div>
+              
               <button class="add-zone-button" id="add-zone-btn">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 5v14M5 12h14"/>
@@ -41,6 +46,11 @@ export function createUserPreferencesComponent() {
 
             <!-- Zone Configuration Form -->
             <div class="zone-config-form" id="zone-config-form">
+              <div class="form-field">
+                <label for="zone-name">Zone Name</label>
+                <input type="text" id="zone-name" class="form-input" placeholder="Enter zone name (e.g., North Field, Garden 1)">
+              </div>
+              
               <div class="form-field">
                 <label for="crop-type">Crop</label>
                 <input type="text" id="crop-type" class="form-input" placeholder="Select crop type">
@@ -74,4 +84,3 @@ export function createUserPreferencesComponent() {
     </div>
   `;
 }
-

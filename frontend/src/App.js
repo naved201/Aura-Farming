@@ -6,6 +6,10 @@ import { createCropManagementComponent } from './cropManagement.js'
 import { setupDashboard } from './dashboard.js'
 import { setupStatsCarousel } from './carousel.js'
 
+
+import { supabase } from './config.js';
+
+
 export function createApp() {
   return `
     <div class="app-layout">
@@ -122,20 +126,10 @@ export async function setupApp() {
 }
 
 export function setupUserPreferences() {
-  // Zone button selection
-  const zoneButtons = document.querySelectorAll('.zone-button');
-  zoneButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      zoneButtons.forEach(b => {
-        b.classList.remove('zone-button-active');
-        b.classList.add('zone-button-inactive');
-      });
-      btn.classList.remove('zone-button-inactive');
-      btn.classList.add('zone-button-active');
-    });
-  });
+  // Remove duplicate import - getCurrentUser is already imported at top
+  // The zone buttons are now optional - we'll save with custom names instead
 
-  // Add zone button
+  // Add zone button (scrolls to form)
   const addZoneBtn = document.getElementById('add-zone-btn');
   const zoneConfigForm = document.getElementById('zone-config-form');
   
@@ -145,13 +139,249 @@ export function setupUserPreferences() {
     });
   }
 
+  // Store form data
+  let formData = {
+    zoneName: '',
+    cropType: '',
+    waterVolume: '',
+    frequency: '',
+    automate: false
+  };
+
+  // Handle zone name input
+  const zoneNameInput = document.getElementById('zone-name');
+  if (zoneNameInput) {
+    zoneNameInput.addEventListener('input', (e) => {
+      const value = e.target.value.trim();
+      formData.zoneName = value;
+      
+      // Validation: Check if zone name is entered
+      if (value.length > 0) {
+        zoneNameInput.style.borderColor = '#4caf50'; // Green border when valid
+        console.log('Zone name:', value);
+      } else {
+        zoneNameInput.style.borderColor = 'rgba(102, 187, 106, 0.35)'; // Reset to default
+      }
+    });
+  }
+
+  // Handle crop type input
+  const cropTypeInput = document.getElementById('crop-type');
+  if (cropTypeInput) {
+    cropTypeInput.addEventListener('input', (e) => {
+      const value = e.target.value.trim();
+      formData.cropType = value;
+      
+      // Validation: Check if crop type is entered
+      if (value.length > 0) {
+        cropTypeInput.style.borderColor = '#4caf50'; // Green border when valid
+        console.log('Crop type:', value);
+      } else {
+        cropTypeInput.style.borderColor = 'rgba(102, 187, 106, 0.35)'; // Reset to default
+      }
+    });
+  }
+
+  // Handle water volume input
+  const waterVolumeInput = document.getElementById('water-volume');
+  if (waterVolumeInput) {
+    waterVolumeInput.addEventListener('input', (e) => {
+      const value = parseFloat(e.target.value);
+      formData.waterVolume = value;
+      
+      // Validation: Check if it's a valid positive number
+      if (!isNaN(value) && value > 0) {
+        waterVolumeInput.style.borderColor = '#4caf50'; // Green border when valid
+        console.log('Water volume:', value, 'litres');
+      } else if (e.target.value === '') {
+        waterVolumeInput.style.borderColor = 'rgba(102, 187, 106, 0.35)'; // Reset to default
+        formData.waterVolume = '';
+      } else {
+        waterVolumeInput.style.borderColor = '#f44336'; // Red border when invalid
+        console.log('Invalid water volume');
+      }
+    });
+
+    // Prevent negative numbers
+    waterVolumeInput.addEventListener('keydown', (e) => {
+      if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+        e.preventDefault();
+      }
+    });
+  }
+
+  // Handle frequency input
+  const frequencyInput = document.getElementById('frequency');
+  if (frequencyInput) {
+    frequencyInput.addEventListener('input', (e) => {
+      const value = parseInt(e.target.value);
+      formData.frequency = value;
+      
+      // Validation: Check if it's a valid positive integer
+      if (!isNaN(value) && value > 0 && value <= 24) {
+        frequencyInput.style.borderColor = '#4caf50'; // Green border when valid
+        console.log('Frequency:', value, 'times per day');
+      } else if (e.target.value === '') {
+        frequencyInput.style.borderColor = 'rgba(102, 187, 106, 0.35)'; // Reset to default
+        formData.frequency = '';
+      } else {
+        frequencyInput.style.borderColor = '#f44336'; // Red border when invalid
+        console.log('Invalid frequency (must be 1-24)');
+      }
+    });
+
+    // Prevent negative numbers and decimals
+    frequencyInput.addEventListener('keydown', (e) => {
+      if (e.key === '-' || e.key === '.' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+        e.preventDefault();
+      }
+    });
+  }
+
+  // Handle automation checkbox
+  const automateCheckbox = document.getElementById('automate');
+  if (automateCheckbox) {
+    automateCheckbox.addEventListener('change', (e) => {
+      formData.automate = e.target.checked;
+      console.log('Automation:', e.target.checked ? 'Enabled' : 'Disabled');
+    });
+  }
+
   // Form actions
   const saveBtn = document.getElementById('save-zone-btn');
   const cancelBtn = document.getElementById('cancel-zone-btn');
   
   if (saveBtn) {
-    saveBtn.addEventListener('click', () => {
-      alert('Zone saved successfully!');
+    saveBtn.addEventListener('click', async () => {
+      // Validate all fields
+      if (!formData.zoneName || formData.zoneName.trim() === '') {
+        alert('Please enter a zone name');
+        zoneNameInput?.focus();
+        return;
+      }
+      
+      if (!formData.cropType || formData.cropType.trim() === '') {
+        alert('Please enter a crop type');
+        cropTypeInput?.focus();
+        return;
+      }
+      
+      if (!formData.waterVolume || formData.waterVolume <= 0) {
+        alert('Please enter a valid water volume (greater than 0)');
+        waterVolumeInput?.focus();
+        return;
+      }
+      
+      if (!formData.frequency || formData.frequency <= 0 || formData.frequency > 24) {
+        alert('Please enter a valid frequency (1-24 times per day)');
+        frequencyInput?.focus();
+        return;
+      }
+
+      // Get current user
+      let user;
+      try {
+        user = await getCurrentUser();
+        if (!user) {
+          alert('You must be logged in to save zones');
+          return;
+        }
+      } catch (error) {
+        console.error('Error getting user:', error);
+        alert('Error: Please log in again');
+        return;
+      }
+
+      // Show loading state
+      saveBtn.disabled = true;
+      const originalText = saveBtn.textContent;
+      saveBtn.textContent = 'Saving...';
+
+      try {
+        // Check if zone with this name already exists for this user
+        const { data: existingZone, error: checkError } = await supabase.from('zones')
+          .select('id')
+          .eq('owner', user.id)
+          .eq('name', formData.zoneName.trim())
+          .maybeSingle();
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned (not an error)
+          throw checkError;
+        }
+
+        let result;
+        
+        if (existingZone) {
+          // UPDATE existing zone
+          const { data, error } = await supabase.from('zones')
+            .update({
+              crop_type: formData.cropType.trim(),
+              water_volume: formData.waterVolume,
+              frequency: formData.frequency,
+              automate: formData.automate
+            })
+            .eq('id', existingZone.id)
+            .eq('owner', user.id)
+            .select();
+
+          result = { data, error };
+          console.log('Updated existing zone:', data);
+        } else {
+          // INSERT new zone (zone ID is auto-generated by database)
+          const { data, error } = await supabase.from('zones')
+            .insert({
+              owner: user.id,
+              name: formData.zoneName.trim(),
+              crop_type: formData.cropType.trim(),
+              watering_amount_l: formData.waterVolume,
+              //frequency: formData.frequency,
+              auto_irrigation_enabled: formData.automate
+            })
+            .select();
+
+          result = { data, error };
+          console.log('Created new zone:', data);
+        }
+
+        if (result.error) {
+          throw result.error;
+        }
+
+        // Success!
+        alert(`Zone "${formData.zoneName}" saved successfully!\nCrop: ${formData.cropType}\nWater: ${formData.waterVolume}L\nFrequency: ${formData.frequency}x/day\nAutomate: ${formData.automate ? 'Yes' : 'No'}`);
+        
+        // Clear form after successful save
+        if (zoneNameInput) zoneNameInput.value = '';
+        if (cropTypeInput) cropTypeInput.value = '';
+        if (waterVolumeInput) waterVolumeInput.value = '';
+        if (frequencyInput) frequencyInput.value = '';
+        if (automateCheckbox) automateCheckbox.checked = false;
+        
+        // Reset form data
+        formData = {
+          zoneName: '',
+          cropType: '',
+          waterVolume: '',
+          frequency: '',
+          automate: false
+        };
+        
+        // Reset border colors
+        if (zoneNameInput) zoneNameInput.style.borderColor = 'rgba(102, 187, 106, 0.35)';
+        if (cropTypeInput) cropTypeInput.style.borderColor = 'rgba(102, 187, 106, 0.35)';
+        if (waterVolumeInput) waterVolumeInput.style.borderColor = 'rgba(102, 187, 106, 0.35)';
+        if (frequencyInput) frequencyInput.style.borderColor = 'rgba(102, 187, 106, 0.35)';
+
+        console.log('Zone saved to Supabase:', result.data);
+
+      } catch (error) {
+        console.error('Error saving zone:', error);
+        alert(`Error saving zone: ${error.message}\n\nPlease check:\n1. You are logged in\n2. Your Supabase table has the correct columns\n3. Row Level Security allows INSERT/UPDATE`);
+      } finally {
+        // Reset button state
+        saveBtn.disabled = false;
+        saveBtn.textContent = originalText;
+      }
     });
   }
   
@@ -164,9 +394,19 @@ export function setupUserPreferences() {
             input.checked = false;
           } else {
             input.value = '';
+            input.style.borderColor = 'rgba(102, 187, 106, 0.35)'; // Reset border color
           }
         });
       }
+      // Reset form data
+      formData = {
+        zoneName: '',
+        cropType: '',
+        waterVolume: '',
+        frequency: '',
+        automate: false
+      };
+      console.log('Form cancelled and reset');
     });
   }
 }
