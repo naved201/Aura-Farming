@@ -1,6 +1,254 @@
 // Image assets from Figma
 const imgImageAlbumArt = "https://www.figma.com/api/mcp/asset/fe69c311-f4c9-47c2-aff6-ad44dc9877db";
 
+// Zone schedule data - each zone has its next scheduled time
+// For demo: using 10-second intervals to demonstrate the watering process
+const zoneScheduleData = [
+  { zone: 'Zone 1', scheduledTime: new Date(Date.now() + 10 * 1000), duration: '30 min' }, // 10 seconds from now
+  { zone: 'Zone 2', scheduledTime: new Date(Date.now() + 20 * 1000), duration: '25 min' }, // 20 seconds from now
+  { zone: 'Zone 3', scheduledTime: new Date(Date.now() + 30 * 1000), duration: '35 min' }, // 30 seconds from now
+  { zone: 'Zone 4', scheduledTime: new Date(Date.now() + 40 * 1000), duration: '40 min' }  // 40 seconds from now
+];
+
+// Individual zone schedule data - each zone has multiple scheduled watering times
+// This represents the general watering schedule for each individual zone
+const individualZoneSchedules = {
+  'Zone 1': [
+    { scheduledTime: new Date(Date.now() + 10 * 1000), duration: '30 min' },
+    { scheduledTime: new Date(Date.now() + 3600 * 1000), duration: '30 min' }, // 1 hour later
+    { scheduledTime: new Date(Date.now() + 7200 * 1000), duration: '30 min' }, // 2 hours later
+    { scheduledTime: new Date(Date.now() + 10800 * 1000), duration: '30 min' } // 3 hours later
+  ],
+  'Zone 2': [
+    { scheduledTime: new Date(Date.now() + 20 * 1000), duration: '25 min' },
+    { scheduledTime: new Date(Date.now() + 3900 * 1000), duration: '25 min' }, // ~1.1 hours later
+    { scheduledTime: new Date(Date.now() + 7500 * 1000), duration: '25 min' }, // ~2.1 hours later
+    { scheduledTime: new Date(Date.now() + 11100 * 1000), duration: '25 min' } // ~3.1 hours later
+  ],
+  'Zone 3': [
+    { scheduledTime: new Date(Date.now() + 30 * 1000), duration: '35 min' },
+    { scheduledTime: new Date(Date.now() + 4200 * 1000), duration: '35 min' }, // ~1.2 hours later
+    { scheduledTime: new Date(Date.now() + 7800 * 1000), duration: '35 min' }, // ~2.2 hours later
+    { scheduledTime: new Date(Date.now() + 11400 * 1000), duration: '35 min' } // ~3.2 hours later
+  ],
+  'Zone 4': [
+    { scheduledTime: new Date(Date.now() + 40 * 1000), duration: '40 min' },
+    { scheduledTime: new Date(Date.now() + 4500 * 1000), duration: '40 min' }, // ~1.25 hours later
+    { scheduledTime: new Date(Date.now() + 8100 * 1000), duration: '40 min' }, // ~2.25 hours later
+    { scheduledTime: new Date(Date.now() + 11700 * 1000), duration: '40 min' } // ~3.25 hours later
+  ]
+};
+
+// Generate schedule card HTML for a single schedule
+function generateScheduleCardHTML(schedule, index, category) {
+  const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
+  
+  const timeUntilSeconds = Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000);
+  const timeUntilMinutes = Math.floor(timeUntilSeconds / 60);
+  
+  // Determine status badge based on category
+  let statusBadge = 'Upcoming';
+  let statusClass = '';
+  if (category === 'delayed') {
+    statusBadge = 'Delayed';
+    statusClass = 'schedule-delayed';
+  } else if (category === 'user-pushed') {
+    statusBadge = 'Pushed';
+    statusClass = 'schedule-user-pushed';
+  } else if (category === 'imminent') {
+    statusBadge = 'Imminent';
+    statusClass = 'schedule-imminent';
+  } else if (category === 'upcoming') {
+    statusBadge = 'Upcoming';
+    statusClass = 'schedule-upcoming';
+  }
+  
+  return `
+    <div class="schedule-card ${statusClass}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
+      <div class="schedule-card-header">
+        <label class="zone-disable-checkbox-label">
+          <input type="checkbox" class="zone-disable-checkbox" data-zone="${schedule.zone}" checked>
+          <span class="checkbox-custom"></span>
+        </label>
+        <span class="schedule-zone-name">${schedule.zone}</span>
+        <span class="schedule-status-badge">${statusBadge}</span>
+      </div>
+      <div class="schedule-card-content">
+        <div class="schedule-time-display">
+          <span class="schedule-icon">🕐</span>
+          <span class="schedule-time">${timeStr}</span>
+        </div>
+        <div class="schedule-countdown">
+          <span class="countdown-text">${timeUntilSeconds > 0 ? 'Scheduled in' : 'Overdue by'}</span>
+          <span class="countdown-value" data-zone="${schedule.zone}">${timeUntilSeconds > 0 ? `${timeUntilSeconds}s` : `${Math.abs(timeUntilSeconds)}s`}</span>
+        </div>
+        <div class="water-tube-container">
+          <div class="water-tube">
+            <div class="water-tube-fill" data-zone="${schedule.zone}" style="height: 0%;">
+              <div class="water-wave"></div>
+            </div>
+            <div class="water-tube-label">Watering Progress</div>
+          </div>
+        </div>
+        <div class="schedule-duration">Duration: ${schedule.duration}</div>
+      </div>
+    </div>
+  `;
+}
+
+// Generate schedule cards HTML from zone data, categorized into columns
+function generateScheduleCards() {
+  // Flatten all individual zone schedules into a single array with zone names
+  const allSchedules = [];
+  
+  Object.keys(individualZoneSchedules).forEach(zoneName => {
+    individualZoneSchedules[zoneName].forEach(schedule => {
+      allSchedules.push({
+        zone: zoneName,
+        scheduledTime: schedule.scheduledTime,
+        duration: schedule.duration,
+        delayed: schedule.delayed || false,
+        userPushed: schedule.userPushed || false
+      });
+    });
+  });
+  
+  const now = Date.now();
+  const FIVE_MINUTES_MS = 5 * 60 * 1000;
+  
+  // Categorize schedules
+  const categories = {
+    upcoming: [],      // > 5 minutes away
+    imminent: [],      // <= 5 minutes
+    delayed: [],       // Time passed but not completed/delayed
+    userPushed: []     // User-pushed for incomplete
+  };
+  
+  allSchedules.forEach((schedule, index) => {
+    const timeUntil = schedule.scheduledTime.getTime() - now;
+    const timeUntilMinutes = timeUntil / (60 * 1000);
+    
+    if (schedule.userPushed) {
+      categories.userPushed.push({ ...schedule, index, category: 'user-pushed' });
+    } else if (timeUntil < 0) {
+      // Time has passed
+      categories.delayed.push({ ...schedule, index, category: 'delayed' });
+    } else if (timeUntilMinutes <= 5) {
+      // <= 5 minutes
+      categories.imminent.push({ ...schedule, index, category: 'imminent' });
+    } else {
+      // > 5 minutes
+      categories.upcoming.push({ ...schedule, index, category: 'upcoming' });
+    }
+  });
+  
+  // Sort each category by scheduled time
+  Object.keys(categories).forEach(key => {
+    categories[key].sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime());
+  });
+  
+  // Generate HTML for each column
+  return `
+    <div class="schedule-columns-container">
+      <div class="schedule-column" data-category="upcoming">
+        <div class="schedule-column-header">
+          <h3 class="schedule-column-title">Upcoming</h3>
+          <span class="schedule-column-count">${categories.upcoming.length}</span>
+        </div>
+        <div class="schedule-column-content">
+          ${categories.upcoming.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'upcoming')).join('')}
+          ${categories.upcoming.length === 0 ? '<div class="schedule-empty-message">No upcoming schedules</div>' : ''}
+        </div>
+      </div>
+      
+      <div class="schedule-column" data-category="imminent">
+        <div class="schedule-column-header">
+          <h3 class="schedule-column-title">Imminent (≤5 min)</h3>
+          <span class="schedule-column-count">${categories.imminent.length}</span>
+        </div>
+        <div class="schedule-column-content">
+          ${categories.imminent.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'imminent')).join('')}
+          ${categories.imminent.length === 0 ? '<div class="schedule-empty-message">No imminent schedules</div>' : ''}
+        </div>
+      </div>
+      
+      <div class="schedule-column" data-category="delayed">
+        <div class="schedule-column-header">
+          <h3 class="schedule-column-title">Delayed</h3>
+          <span class="schedule-column-count">${categories.delayed.length}</span>
+        </div>
+        <div class="schedule-column-content">
+          ${categories.delayed.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'delayed')).join('')}
+          ${categories.delayed.length === 0 ? '<div class="schedule-empty-message">No delayed schedules</div>' : ''}
+        </div>
+      </div>
+      
+      <div class="schedule-column" data-category="user-pushed">
+        <div class="schedule-column-header">
+          <h3 class="schedule-column-title">User Pushed</h3>
+          <span class="schedule-column-count">${categories.userPushed.length}</span>
+        </div>
+        <div class="schedule-column-content">
+          ${categories.userPushed.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'user-pushed')).join('')}
+          ${categories.userPushed.length === 0 ? '<div class="schedule-empty-message">No user-pushed schedules</div>' : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Generate schedule cards HTML for a specific zone (individual zone schedule)
+function generateZoneScheduleCards(zoneName) {
+  const zoneSchedules = individualZoneSchedules[zoneName] || [];
+  
+  // Sort by scheduled time (earliest first)
+  const sortedSchedule = [...zoneSchedules].sort((a, b) => {
+    return a.scheduledTime.getTime() - b.scheduledTime.getTime();
+  });
+  
+  return sortedSchedule.map((schedule, index) => {
+    const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    const timeUntilSeconds = Math.max(0, Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000));
+    
+    return `
+    <div class="zone-schedule-card" data-zone="${zoneName}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}">
+      <div class="zone-schedule-card-header">
+        <span class="zone-schedule-time-label">${timeStr}</span>
+        <span class="zone-schedule-status-badge">UPCOMING</span>
+      </div>
+      <div class="zone-schedule-card-content">
+        <div class="zone-schedule-time-display">
+          <span class="zone-schedule-icon">🕐</span>
+          <span class="zone-schedule-time">${timeStr}</span>
+        </div>
+        <div class="zone-schedule-countdown">
+          <span class="zone-countdown-text">SCHEDULED IN</span>
+          <span class="zone-countdown-value" data-zone="${zoneName}">${timeUntilSeconds}s</span>
+        </div>
+        <div class="zone-water-tube-container">
+          <div class="zone-water-tube">
+            <div class="zone-water-tube-fill" data-zone="${zoneName}" style="height: 0%;">
+              <div class="zone-water-wave"></div>
+            </div>
+            <div class="zone-water-tube-label">WATERING PROGRESS</div>
+          </div>
+        </div>
+        <div class="zone-schedule-duration">Duration: ${schedule.duration}</div>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
 export function createReviewsComponent() {
   return `
     <div class="reviews-container" data-name="Examples/Reviews-Web" data-node-id="14:2081">
@@ -70,6 +318,12 @@ export function createReviewsComponent() {
                         <path d="M6 9l6 6 6-6"/>
                       </svg>
                     </button>
+                    <button class="zone-schedule-toggle" data-zone="1" aria-label="Toggle Zone 1 Schedule">
+                      <span class="zone-schedule-toggle-text">View Zone Schedule</span>
+                      <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9l6 6 6-6"/>
+                      </svg>
+                    </button>
                   </div>
                   <div class="zone-graph-section" data-zone="1">
                     <div class="zone-graph-section-inner">
@@ -92,6 +346,31 @@ export function createReviewsComponent() {
                         <div class="legend-item">
                           <span class="legend-dot"></span>
                           <span class="legend-text">~ no problem <=> yes plan : medium</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="zone-schedule-section" data-zone="1">
+                    <div class="zone-schedule-section-inner">
+                      <div class="zone-individual-schedule">
+                        <div class="zone-schedule-carousel-container">
+                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-left" data-zone="1" aria-label="Previous Schedule">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M15 18l-6-6 6-6"/>
+                            </svg>
+                          </button>
+                          
+                          <div class="zone-schedule-carousel-wrapper">
+                            <div class="zone-schedule-carousel" id="zone-1-schedule-carousel">
+                              ${generateZoneScheduleCards('Zone 1')}
+                            </div>
+                          </div>
+                          
+                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-right" data-zone="1" aria-label="Next Schedule">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -148,6 +427,12 @@ export function createReviewsComponent() {
                         <path d="M6 9l6 6 6-6"/>
                       </svg>
                     </button>
+                    <button class="zone-schedule-toggle" data-zone="2" aria-label="Toggle Zone 2 Schedule">
+                      <span class="zone-schedule-toggle-text">View Zone Schedule</span>
+                      <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9l6 6 6-6"/>
+                      </svg>
+                    </button>
                   </div>
                   <div class="zone-graph-section" data-zone="2">
                     <div class="zone-graph-section-inner">
@@ -170,6 +455,31 @@ export function createReviewsComponent() {
                         <div class="legend-item">
                           <span class="legend-dot"></span>
                           <span class="legend-text">~ no problem <=> yes plan : medium</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="zone-schedule-section" data-zone="2">
+                    <div class="zone-schedule-section-inner">
+                      <div class="zone-individual-schedule">
+                        <div class="zone-schedule-carousel-container">
+                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-left" data-zone="2" aria-label="Previous Schedule">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M15 18l-6-6 6-6"/>
+                            </svg>
+                          </button>
+                          
+                          <div class="zone-schedule-carousel-wrapper">
+                            <div class="zone-schedule-carousel" id="zone-2-schedule-carousel">
+                              ${generateZoneScheduleCards('Zone 2')}
+                            </div>
+                          </div>
+                          
+                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-right" data-zone="2" aria-label="Next Schedule">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -218,6 +528,12 @@ export function createReviewsComponent() {
                         <path d="M6 9l6 6 6-6"/>
                       </svg>
                     </button>
+                    <button class="zone-schedule-toggle" data-zone="3" aria-label="Toggle Zone 3 Schedule">
+                      <span class="zone-schedule-toggle-text">View Zone Schedule</span>
+                      <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9l6 6 6-6"/>
+                      </svg>
+                    </button>
                   </div>
                   <div class="zone-graph-section" data-zone="3">
                     <div class="zone-graph-section-inner">
@@ -240,6 +556,31 @@ export function createReviewsComponent() {
                         <div class="legend-item">
                           <span class="legend-dot"></span>
                           <span class="legend-text">~ no problem <=> yes plan : medium</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="zone-schedule-section" data-zone="3">
+                    <div class="zone-schedule-section-inner">
+                      <div class="zone-individual-schedule">
+                        <div class="zone-schedule-carousel-container">
+                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-left" data-zone="3" aria-label="Previous Schedule">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M15 18l-6-6 6-6"/>
+                            </svg>
+                          </button>
+                          
+                          <div class="zone-schedule-carousel-wrapper">
+                            <div class="zone-schedule-carousel" id="zone-3-schedule-carousel">
+                              ${generateZoneScheduleCards('Zone 3')}
+                            </div>
+                          </div>
+                          
+                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-right" data-zone="3" aria-label="Next Schedule">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -296,6 +637,12 @@ export function createReviewsComponent() {
                         <path d="M6 9l6 6 6-6"/>
                       </svg>
                     </button>
+                    <button class="zone-schedule-toggle" data-zone="4" aria-label="Toggle Zone 4 Schedule">
+                      <span class="zone-schedule-toggle-text">View Zone Schedule</span>
+                      <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9l6 6 6-6"/>
+                      </svg>
+                    </button>
                   </div>
                   <div class="zone-graph-section" data-zone="4">
                     <div class="zone-graph-section-inner">
@@ -322,6 +669,31 @@ export function createReviewsComponent() {
                       </div>
                     </div>
                   </div>
+                  <div class="zone-schedule-section" data-zone="4">
+                    <div class="zone-schedule-section-inner">
+                      <div class="zone-individual-schedule">
+                        <div class="zone-schedule-carousel-container">
+                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-left" data-zone="4" aria-label="Previous Schedule">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M15 18l-6-6 6-6"/>
+                            </svg>
+                          </button>
+                          
+                          <div class="zone-schedule-carousel-wrapper">
+                            <div class="zone-schedule-carousel" id="zone-4-schedule-carousel">
+                              ${generateZoneScheduleCards('Zone 4')}
+                            </div>
+                          </div>
+                          
+                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-right" data-zone="4" aria-label="Next Schedule">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -333,17 +705,19 @@ export function createReviewsComponent() {
             </button>
           </div>
 
-          <!-- Upcoming Activities Section -->
-          <div class="upcoming-activities-section">
-            <h2 class="activities-section-title">Upcoming Activities</h2>
-            <div class="activities-table">
-              <div class="activity-row">
-                <div class="activity-label">
-                  <span class="activity-icon">💧</span>
-                  <span>Next watering schedule:</span>
-                </div>
-                <div class="activity-value">--</div>
-              </div>
+          <!-- Watering Schedule Columns Section -->
+          <div class="watering-schedule-section">
+            <div class="watering-schedule-header">
+              <h2 class="watering-schedule-title">Watering Schedule</h2>
+              <button class="halt-queue-button" id="halt-queue-btn" aria-label="Halt All Watering">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="6" y="6" width="12" height="12" rx="2"/>
+                </svg>
+                <span class="halt-button-text">Halt All</span>
+              </button>
+            </div>
+            <div class="watering-schedule-columns-wrapper" id="watering-schedule-columns">
+              ${generateScheduleCards()}
             </div>
           </div>
 

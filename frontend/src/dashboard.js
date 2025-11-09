@@ -2,6 +2,9 @@ export function setupDashboard() {
   // Setup zones carousel
   setupZonesCarousel();
   
+  // Setup watering schedule columns
+  setupWateringScheduleColumns();
+  
   // Setup update buttons
   const updateButtons = document.querySelectorAll('.update-button');
   updateButtons.forEach(btn => {
@@ -16,6 +19,9 @@ export function setupDashboard() {
 
   // Setup zone graph toggles
   setupZoneGraphToggles();
+  
+  // Setup zone schedule toggles
+  setupZoneScheduleToggles();
 }
 
 function setupZonesCarousel() {
@@ -152,6 +158,501 @@ function setupZonesCarousel() {
   };
 }
 
+function setupWateringScheduleColumns() {
+  const columnsWrapper = document.getElementById('watering-schedule-columns');
+  
+  if (!columnsWrapper) {
+    setTimeout(setupWateringScheduleColumns, 100);
+    return;
+  }
+
+  // Setup countdown timers for all columns
+  const allColumns = columnsWrapper.querySelectorAll('.schedule-column');
+  allColumns.forEach(column => {
+    const columnContent = column.querySelector('.schedule-column-content');
+    if (columnContent) {
+      setupScheduleCountdowns(columnContent);
+    }
+  });
+  
+  // Setup zone disable/enable functionality
+  setupZoneDisableControls(columnsWrapper);
+  
+  // Setup global halt/resume functionality
+  setupGlobalHaltControl();
+  
+  // Setup dynamic categorization update
+  setupScheduleCategorization();
+}
+
+// Function to dynamically update schedule categorization
+function setupScheduleCategorization() {
+  const columnsWrapper = document.getElementById('watering-schedule-columns');
+  if (!columnsWrapper) return;
+  
+  // Update categorization every 10 seconds
+  setInterval(() => {
+    const allCards = columnsWrapper.querySelectorAll('.schedule-card');
+    const now = Date.now();
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    
+    allCards.forEach(card => {
+      const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
+      if (!scheduledTime) return;
+      
+      const timeUntil = scheduledTime - now;
+      const timeUntilMinutes = timeUntil / (60 * 1000);
+      const currentCategory = card.getAttribute('data-category');
+      const userPushed = card.hasAttribute('data-user-pushed');
+      
+      let newCategory = currentCategory;
+      
+      if (userPushed) {
+        newCategory = 'user-pushed';
+      } else if (timeUntil < 0) {
+        newCategory = 'delayed';
+      } else if (timeUntilMinutes <= 5) {
+        newCategory = 'imminent';
+      } else {
+        newCategory = 'upcoming';
+      }
+      
+      // Move card to appropriate column if category changed
+      if (newCategory !== currentCategory) {
+        const targetColumn = columnsWrapper.querySelector(`.schedule-column[data-category="${newCategory}"]`);
+        const targetContent = targetColumn?.querySelector('.schedule-column-content');
+        
+        if (targetContent) {
+          card.setAttribute('data-category', newCategory);
+          card.className = `schedule-card schedule-${newCategory}`;
+          targetContent.appendChild(card);
+          
+          // Update column counts
+          updateColumnCounts(columnsWrapper);
+        }
+      }
+    });
+  }, 10000); // Update every 10 seconds
+}
+
+// Update column counts
+function updateColumnCounts(columnsWrapper) {
+  const columns = columnsWrapper.querySelectorAll('.schedule-column');
+  columns.forEach(column => {
+    const countEl = column.querySelector('.schedule-column-count');
+    const cards = column.querySelectorAll('.schedule-card');
+    if (countEl) {
+      countEl.textContent = cards.length;
+    }
+  });
+}
+
+// Sort schedule cards by scheduled time (earliest first)
+function sortScheduleCardsByTime(carousel) {
+  const cards = Array.from(carousel.querySelectorAll('.schedule-card'));
+  
+  cards.sort((a, b) => {
+    const timeA = parseInt(a.getAttribute('data-scheduled-time')) || 0;
+    const timeB = parseInt(b.getAttribute('data-scheduled-time')) || 0;
+    return timeA - timeB;
+  });
+  
+  // Re-append cards in sorted order
+  cards.forEach((card, index) => {
+    card.setAttribute('data-index', index);
+    carousel.appendChild(card);
+  });
+}
+
+// Setup countdown timers and handle completed zones
+function setupScheduleCountdowns(carousel) {
+  const updateInterval = 100; // Update every 100ms for smooth animation (10-second demo)
+  
+  function updateCountdowns() {
+    const cards = Array.from(carousel.querySelectorAll('.schedule-card'));
+    let needsResort = false;
+    const isHalted = document.body.classList.contains('watering-halted');
+    
+    cards.forEach(card => {
+      const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
+      const countdownEl = card.querySelector('.countdown-value');
+      const timeDisplay = card.querySelector('.schedule-time');
+      const waterFill = card.querySelector('.water-tube-fill');
+      const zone = card.getAttribute('data-zone');
+      const checkbox = card.querySelector('.zone-disable-checkbox');
+      const isDisabled = !checkbox || !checkbox.checked;
+      
+      // Skip disabled zones or if queue is halted
+      if (isDisabled || isHalted) {
+        if (countdownEl && !card.classList.contains('schedule-completed')) {
+          countdownEl.textContent = isHalted ? 'Halted' : 'Disabled';
+          countdownEl.classList.add('paused');
+        }
+        card.classList.add('zone-disabled');
+        return;
+      } else {
+        card.classList.remove('zone-disabled');
+        if (countdownEl) {
+          countdownEl.classList.remove('paused');
+        }
+      }
+      
+      if (!scheduledTime || !countdownEl) return;
+      
+      const now = Date.now();
+      const timeUntilSeconds = Math.floor((scheduledTime - now) / 1000);
+      const totalDuration = 10; // 10 seconds for demo
+      
+      // Calculate progress: when countdown is 10s, progress is 0%; when 0s, progress is 100%
+      const progress = Math.max(0, Math.min(100, ((totalDuration - timeUntilSeconds) / totalDuration) * 100));
+      
+      if (timeUntilSeconds <= 0) {
+        // Zone has finished - mark for moving to end
+        countdownEl.textContent = 'Completed';
+        countdownEl.classList.add('completed');
+        card.classList.add('schedule-completed');
+        if (waterFill) {
+          waterFill.style.height = '100%';
+        }
+        
+        // Show notification if not already shown for this zone
+        if (!card.dataset.notificationShown) {
+          showWateringCompleteNotification(zone);
+          card.dataset.notificationShown = 'true';
+        }
+        
+        needsResort = true;
+      } else {
+        // Update countdown
+        countdownEl.textContent = `${timeUntilSeconds}s`;
+        countdownEl.classList.remove('completed');
+        card.classList.remove('schedule-completed');
+        
+        // Update water tube fill
+        if (waterFill) {
+          waterFill.style.height = `${progress}%`;
+          waterFill.style.transition = 'height 0.1s linear';
+        }
+        
+        // Update time display
+        const scheduledDate = new Date(scheduledTime);
+        const timeStr = scheduledDate.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true 
+        });
+        if (timeDisplay) {
+          timeDisplay.textContent = timeStr;
+        }
+      }
+    });
+    
+    // If any zones completed, move them to the end and re-sort
+    if (needsResort) {
+      moveCompletedZonesToEnd(carousel);
+    }
+  }
+  
+  // Update immediately
+  updateCountdowns();
+  
+  // Update every 100ms for smooth animation
+  const intervalId = setInterval(updateCountdowns, updateInterval);
+  
+  // Store interval ID for cleanup if needed
+  if (carousel.dataset.intervalId) {
+    clearInterval(parseInt(carousel.dataset.intervalId));
+  }
+  carousel.dataset.intervalId = intervalId.toString();
+}
+
+// Move completed zones to the end of the carousel
+function moveCompletedZonesToEnd(carousel) {
+  const cards = Array.from(carousel.querySelectorAll('.schedule-card'));
+  const completedCards = cards.filter(card => card.classList.contains('schedule-completed'));
+  const activeCards = cards.filter(card => !card.classList.contains('schedule-completed'));
+  
+  // Sort active cards by time
+  activeCards.sort((a, b) => {
+    const timeA = parseInt(a.getAttribute('data-scheduled-time')) || 0;
+    const timeB = parseInt(b.getAttribute('data-scheduled-time')) || 0;
+    return timeA - timeB;
+  });
+  
+  // Reset completed cards with new scheduled times (cycle them back)
+  // Find the latest scheduled time among active cards
+  let latestTime = Date.now();
+  if (activeCards.length > 0) {
+    const lastActiveCard = activeCards[activeCards.length - 1];
+    latestTime = parseInt(lastActiveCard.getAttribute('data-scheduled-time')) || Date.now();
+  }
+  
+  // Reset completed cards to start after the last active card
+  // Only reset enabled zones (skip disabled ones)
+  const enabledCompletedCards = completedCards.filter(card => {
+    const checkbox = card.querySelector('.zone-disable-checkbox');
+    return checkbox && checkbox.checked;
+  });
+  
+  enabledCompletedCards.forEach((card, index) => {
+    // Remove completed class and reset
+    card.classList.remove('schedule-completed');
+    const countdownEl = card.querySelector('.countdown-value');
+    const waterFill = card.querySelector('.water-tube-fill');
+    const statusBadge = card.querySelector('.schedule-status-badge');
+    
+    // Set new scheduled time (10 seconds after the last active card, staggered)
+    const newScheduledTime = latestTime + (10 * 1000) + (index * 10 * 1000);
+    card.setAttribute('data-scheduled-time', newScheduledTime);
+    
+    // Reset UI elements
+    if (countdownEl) {
+      countdownEl.textContent = '10s';
+      countdownEl.classList.remove('completed', 'paused');
+    }
+    if (waterFill) {
+      waterFill.style.height = '0%';
+    }
+    if (statusBadge) {
+      statusBadge.textContent = 'Upcoming';
+    }
+    
+    // Reset notification flag
+    card.dataset.notificationShown = '';
+  });
+  
+  // Keep disabled completed cards as completed (don't reset them)
+  const disabledCompletedCards = completedCards.filter(card => {
+    const checkbox = card.querySelector('.zone-disable-checkbox');
+    return !checkbox || !checkbox.checked;
+  });
+  
+  // Combine all cards and sort by time (only enabled completed cards are reset)
+  const allCards = [...activeCards, ...enabledCompletedCards, ...disabledCompletedCards];
+  allCards.sort((a, b) => {
+    const timeA = parseInt(a.getAttribute('data-scheduled-time')) || 0;
+    const timeB = parseInt(b.getAttribute('data-scheduled-time')) || 0;
+    return timeA - timeB;
+  });
+  
+  // Clear carousel
+  carousel.innerHTML = '';
+  
+  // Add all cards in sorted order
+  allCards.forEach((card, index) => {
+    card.setAttribute('data-index', index);
+    carousel.appendChild(card);
+  });
+  
+  // Reset notification flags when zones are reset
+  allCards.forEach(card => {
+    if (!card.classList.contains('schedule-completed')) {
+      card.dataset.notificationShown = '';
+    }
+  });
+  
+  // Trigger carousel update if setup function is available
+  const updateCarouselName = carousel.dataset.updateCarousel;
+  if (updateCarouselName && typeof window[updateCarouselName] === 'function') {
+    window[updateCarouselName]();
+  }
+}
+
+// Show notification when watering completes
+function showWateringCompleteNotification(zoneName) {
+  // Create notification container if it doesn't exist
+  let notificationContainer = document.getElementById('watering-notifications-container');
+  if (!notificationContainer) {
+    notificationContainer = document.createElement('div');
+    notificationContainer.id = 'watering-notifications-container';
+    notificationContainer.className = 'watering-notifications-container';
+    document.body.appendChild(notificationContainer);
+  }
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = 'watering-notification';
+  notification.setAttribute('data-zone', zoneName);
+  
+  notification.innerHTML = `
+    <div class="notification-content">
+      <div class="notification-icon">💧</div>
+      <div class="notification-text">
+        <div class="notification-title">Watering Complete!</div>
+        <div class="notification-message">${zoneName} has finished watering.</div>
+      </div>
+      <button class="notification-close" aria-label="Close notification">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  `;
+  
+  // Add close button functionality
+  const closeBtn = notification.querySelector('.notification-close');
+  closeBtn.addEventListener('click', () => {
+    dismissNotification(notification);
+  });
+  
+  // Add to container
+  notificationContainer.appendChild(notification);
+  
+  // Trigger animation
+  requestAnimationFrame(() => {
+    notification.classList.add('show');
+  });
+  
+  // Auto-dismiss after 5 seconds
+  setTimeout(() => {
+    if (notification.parentElement) {
+      dismissNotification(notification);
+    }
+  }, 5000);
+}
+
+// Dismiss notification with animation
+function dismissNotification(notification) {
+  notification.classList.remove('show');
+  notification.classList.add('dismissing');
+  
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.remove();
+    }
+  }, 300);
+}
+
+// Setup zone disable/enable controls
+function setupZoneDisableControls(carousel) {
+  const checkboxes = carousel.querySelectorAll('.zone-disable-checkbox');
+  
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const card = checkbox.closest('.schedule-card');
+      const zone = checkbox.getAttribute('data-zone');
+      const isHalted = document.body.classList.contains('watering-halted');
+      
+      if (checkbox.checked) {
+        // Zone enabled - remove disabled state
+        card.classList.remove('zone-disabled');
+        const countdownEl = card.querySelector('.countdown-value');
+        
+        if (countdownEl) {
+          countdownEl.classList.remove('paused');
+          
+          // If zone was completed and is being re-enabled, reset it
+          if (card.classList.contains('schedule-completed')) {
+            card.classList.remove('schedule-completed');
+            const scheduledTime = parseInt(card.getAttribute('data-scheduled-time')) || Date.now();
+            const timeUntilSeconds = Math.max(0, Math.floor((scheduledTime - Date.now()) / 1000));
+            countdownEl.textContent = timeUntilSeconds > 0 ? `${timeUntilSeconds}s` : '10s';
+            
+            // Reset water tube
+            const waterFill = card.querySelector('.water-tube-fill');
+            if (waterFill) {
+              waterFill.style.height = '0%';
+            }
+            
+            // Reset status badge
+            const statusBadge = card.querySelector('.schedule-status-badge');
+            if (statusBadge) {
+              statusBadge.textContent = 'Upcoming';
+            }
+            
+            // Reset notification flag
+            card.dataset.notificationShown = '';
+          } else if (isHalted) {
+            countdownEl.textContent = 'Halted';
+            countdownEl.classList.add('paused');
+          }
+        }
+        
+        // Re-sort cards to include this zone in the queue
+        sortScheduleCardsByTime(carousel);
+      } else {
+        // Zone disabled - add disabled state
+        card.classList.add('zone-disabled');
+        const countdownEl = card.querySelector('.countdown-value');
+        if (countdownEl && !card.classList.contains('schedule-completed')) {
+          countdownEl.textContent = 'Disabled';
+          countdownEl.classList.add('paused');
+        }
+      }
+    });
+  });
+}
+
+// Setup global halt/resume control
+function setupGlobalHaltControl() {
+  const haltButton = document.getElementById('halt-queue-btn');
+  if (!haltButton) return;
+  
+  haltButton.addEventListener('click', () => {
+    const isHalted = document.body.classList.contains('watering-halted');
+    
+    if (isHalted) {
+      // Resume watering
+      document.body.classList.remove('watering-halted');
+      haltButton.classList.remove('halted');
+      const buttonText = haltButton.querySelector('.halt-button-text');
+      const buttonIcon = haltButton.querySelector('svg');
+      
+      if (buttonText) buttonText.textContent = 'Halt All';
+      
+      // Update icon to pause
+      if (buttonIcon) {
+        buttonIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" rx="2"/>';
+      }
+      
+      // Restore countdowns for enabled zones
+      const carousel = document.getElementById('watering-carousel');
+      if (carousel) {
+        const cards = carousel.querySelectorAll('.schedule-card:not(.zone-disabled):not(.schedule-completed)');
+        cards.forEach(card => {
+          const countdownEl = card.querySelector('.countdown-value');
+          const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
+          if (countdownEl && scheduledTime) {
+            const now = Date.now();
+            const timeUntilSeconds = Math.floor((scheduledTime - now) / 1000);
+            if (timeUntilSeconds > 0) {
+              countdownEl.textContent = `${timeUntilSeconds}s`;
+              countdownEl.classList.remove('paused');
+            }
+          }
+        });
+      }
+    } else {
+      // Halt watering
+      document.body.classList.add('watering-halted');
+      haltButton.classList.add('halted');
+      const buttonText = haltButton.querySelector('.halt-button-text');
+      const buttonIcon = haltButton.querySelector('svg');
+      
+      if (buttonText) buttonText.textContent = 'Resume';
+      
+      // Update icon to play
+      if (buttonIcon) {
+        buttonIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+      }
+      
+      // Update all active cards to show "Halted"
+      const carousel = document.getElementById('watering-carousel');
+      if (carousel) {
+        const cards = carousel.querySelectorAll('.schedule-card:not(.zone-disabled):not(.schedule-completed)');
+        cards.forEach(card => {
+          const countdownEl = card.querySelector('.countdown-value');
+          if (countdownEl) {
+            countdownEl.textContent = 'Halted';
+            countdownEl.classList.add('paused');
+          }
+        });
+      }
+    }
+  });
+}
+
 function setupZoneGraphToggles() {
   const toggleButtons = document.querySelectorAll('.zone-graph-toggle');
   
@@ -227,6 +728,272 @@ function setupZoneGraphToggles() {
       }
     });
   });
+}
+
+function setupZoneScheduleToggles() {
+  const toggleButtons = document.querySelectorAll('.zone-schedule-toggle');
+  
+  toggleButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const zoneNumber = button.getAttribute('data-zone');
+      const scheduleSection = document.querySelector(`.zone-schedule-section[data-zone="${zoneNumber}"]`);
+      
+      if (!scheduleSection) return;
+      
+      const isExpanded = scheduleSection.classList.contains('expanded');
+      
+      if (isExpanded) {
+        // Collapse - smooth glide up
+        const inner = scheduleSection.querySelector('.zone-schedule-section-inner');
+        if (inner) {
+          const currentHeight = scheduleSection.style.height === 'auto' 
+            ? scheduleSection.offsetHeight 
+            : parseInt(scheduleSection.style.height) || scheduleSection.scrollHeight;
+          scheduleSection.style.height = currentHeight + 'px';
+          scheduleSection.style.overflow = 'hidden';
+          scheduleSection.offsetHeight;
+          requestAnimationFrame(() => {
+            scheduleSection.style.height = '0px';
+          });
+        }
+        scheduleSection.classList.remove('expanded');
+        button.classList.remove('active');
+        button.querySelector('.zone-schedule-toggle-text').textContent = 'View Zone Schedule';
+      } else {
+        // Expand - smooth glide down
+        scheduleSection.classList.add('expanded');
+        button.classList.add('active');
+        button.querySelector('.zone-schedule-toggle-text').textContent = 'Hide Zone Schedule';
+        
+        // Measure and set height for smooth transition
+        const inner = scheduleSection.querySelector('.zone-schedule-section-inner');
+        if (inner) {
+          scheduleSection.style.height = 'auto';
+          scheduleSection.style.overflow = 'visible';
+          const targetHeight = inner.scrollHeight + 24;
+          scheduleSection.style.height = '0px';
+          scheduleSection.style.overflow = 'hidden';
+          
+          scheduleSection.offsetHeight;
+          
+          requestAnimationFrame(() => {
+            scheduleSection.style.height = targetHeight + 'px';
+            setTimeout(() => {
+              scheduleSection.style.height = 'auto';
+              scheduleSection.style.overflow = 'visible';
+            }, 300);
+          });
+        }
+        
+        // Setup carousel for this zone's schedule
+        const carouselId = `zone-${zoneNumber}-schedule-carousel`;
+        setupZoneScheduleCarousel(carouselId, zoneNumber);
+      }
+    });
+  });
+}
+
+function setupZoneScheduleCarousel(carouselId, zoneNumber) {
+  const carousel = document.getElementById(carouselId);
+  const leftArrow = document.querySelector(`.zone-schedule-carousel-arrow-left[data-zone="${zoneNumber}"]`);
+  const rightArrow = document.querySelector(`.zone-schedule-carousel-arrow-right[data-zone="${zoneNumber}"]`);
+  
+  if (!carousel || !leftArrow || !rightArrow) {
+    setTimeout(() => setupZoneScheduleCarousel(carouselId, zoneNumber), 100);
+    return;
+  }
+
+  // Sort cards by scheduled time
+  sortZoneScheduleCards(carousel);
+
+  let currentIndex = 0;
+  let cards = carousel.querySelectorAll('.zone-schedule-card');
+  const totalCards = cards.length;
+  const cardsPerView = 2; // Show 2 cards at a time in the dropdown (compact cards)
+  
+  if (totalCards === 0) {
+    setTimeout(() => setupZoneScheduleCarousel(carouselId, zoneNumber), 100);
+    return;
+  }
+
+  const maxIndex = totalCards > cardsPerView ? totalCards - cardsPerView : 0;
+  
+  // Setup countdown timers for this zone's schedule
+  setupZoneScheduleCountdowns(carousel, zoneNumber);
+
+  function updateCarousel() {
+    cards = carousel.querySelectorAll('.zone-schedule-card');
+    if (cards.length === 0) {
+      setTimeout(updateCarousel, 100);
+      return;
+    }
+    
+    const wrapper = carousel.parentElement;
+    if (!wrapper) {
+      setTimeout(updateCarousel, 100);
+      return;
+    }
+    
+    const wrapperWidth = wrapper.offsetWidth;
+    if (wrapperWidth === 0) {
+      setTimeout(updateCarousel, 100);
+      return;
+    }
+    
+    const carouselStyle = window.getComputedStyle(carousel);
+    const gapValue = carouselStyle.gap || '16px';
+    const gap = parseFloat(gapValue) || 16;
+    
+    const cardWidth = (wrapperWidth - gap) / cardsPerView;
+    
+    cards.forEach((card) => {
+      card.style.width = cardWidth + 'px';
+      card.style.minWidth = cardWidth + 'px';
+      card.style.maxWidth = cardWidth + 'px';
+      card.style.flexBasis = cardWidth + 'px';
+    });
+    
+    const translateX = -currentIndex * (cardWidth + gap);
+    carousel.style.transform = `translateX(${translateX}px)`;
+    carousel.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+  }
+
+  function next() {
+    if (currentIndex >= maxIndex) {
+      currentIndex = 0;
+    } else {
+      currentIndex++;
+    }
+    updateCarousel();
+  }
+
+  function prev() {
+    if (currentIndex <= 0) {
+      currentIndex = maxIndex;
+    } else {
+      currentIndex--;
+    }
+    updateCarousel();
+  }
+
+  rightArrow.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    next();
+  });
+  
+  leftArrow.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    prev();
+  });
+
+  requestAnimationFrame(() => {
+    currentIndex = 0;
+    updateCarousel();
+  });
+  
+  let resizeTimeout;
+  const resizeHandler = () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      updateCarousel();
+    }, 200);
+  };
+  
+  window.addEventListener('resize', resizeHandler);
+}
+
+function sortZoneScheduleCards(carousel) {
+  const cards = Array.from(carousel.querySelectorAll('.zone-schedule-card'));
+  
+  cards.sort((a, b) => {
+    const timeA = parseInt(a.getAttribute('data-scheduled-time')) || 0;
+    const timeB = parseInt(b.getAttribute('data-scheduled-time')) || 0;
+    return timeA - timeB;
+  });
+  
+  cards.forEach((card, index) => {
+    card.setAttribute('data-index', index);
+    carousel.appendChild(card);
+  });
+}
+
+function setupZoneScheduleCountdowns(carousel, zoneNumber) {
+  const updateInterval = 100;
+  
+  function updateCountdowns() {
+    const cards = Array.from(carousel.querySelectorAll('.zone-schedule-card'));
+    const isHalted = document.body.classList.contains('watering-halted');
+    
+    cards.forEach(card => {
+      const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
+      const countdownEl = card.querySelector('.zone-countdown-value');
+      const timeDisplay = card.querySelector('.zone-schedule-time');
+      const waterFill = card.querySelector('.zone-water-tube-fill');
+      
+      if (!scheduledTime || !countdownEl) return;
+      
+      if (isHalted) {
+        if (countdownEl && !card.classList.contains('schedule-completed')) {
+          countdownEl.textContent = 'Halted';
+          countdownEl.classList.add('paused');
+        }
+        card.classList.add('zone-schedule-paused');
+        return;
+      } else {
+        card.classList.remove('zone-schedule-paused');
+        if (countdownEl) {
+          countdownEl.classList.remove('paused');
+        }
+      }
+      
+      const now = Date.now();
+      const timeUntilSeconds = Math.floor((scheduledTime - now) / 1000);
+      const totalDuration = 10;
+      const progress = Math.max(0, Math.min(100, ((totalDuration - timeUntilSeconds) / totalDuration) * 100));
+      
+      if (timeUntilSeconds <= 0) {
+        countdownEl.textContent = 'Completed';
+        countdownEl.classList.add('completed');
+        card.classList.add('schedule-completed');
+        if (waterFill) {
+          waterFill.style.height = '100%';
+        }
+      } else {
+        countdownEl.textContent = `${timeUntilSeconds}s`;
+        countdownEl.classList.remove('completed');
+        card.classList.remove('schedule-completed');
+        
+        if (waterFill) {
+          waterFill.style.height = `${progress}%`;
+          waterFill.style.transition = 'height 0.1s linear';
+        }
+        
+        const scheduledDate = new Date(scheduledTime);
+        const timeStr = scheduledDate.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true 
+        });
+        if (timeDisplay) {
+          timeDisplay.textContent = timeStr;
+        }
+      }
+    });
+  }
+  
+  updateCountdowns();
+  const intervalId = setInterval(updateCountdowns, updateInterval);
+  
+  if (carousel.dataset.intervalId) {
+    clearInterval(parseInt(carousel.dataset.intervalId));
+  }
+  carousel.dataset.intervalId = intervalId.toString();
 }
 
 function setupZoneMoistureGraph(canvas, zoneNumber) {
