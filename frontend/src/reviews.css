@@ -274,12 +274,12 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 255, 249, 0.95) 100%);
+  background: rgba(241, 248, 244, 0.4);
   backdrop-filter: blur(20px) saturate(180%);
   flex-shrink: 0;
   width: 100%;
-  box-shadow: 0 2px 12px rgba(27, 94, 32, 0.15);
-  border-bottom: 1px solid rgba(102, 187, 106, 0.2);
+  box-shadow: 0 1px 8px rgba(27, 94, 32, 0.08);
+  border-bottom: 1px solid rgba(102, 187, 106, 0.15);
 }
 
 .app-bar-2 {
@@ -312,22 +312,26 @@
 .app-bar-title {
   font-family: var(--static-title-large-font);
   font-weight: 700;
-  line-height: var(--static-title-large-line-height);
+  line-height: 1.2;
   overflow: ellipsis;
   overflow: hidden;
   position: relative;
   flex-shrink: 0;
-  font-size: 28px;
-  background: var(--gradient-nature);
+  font-size: 30px;
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 40%, #388e3c 70%, #4caf50 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease infinite;
   text-align: center;
-  letter-spacing: var(--static-title-large-tracking);
+  letter-spacing: 1px;
   width: 100%;
   white-space: nowrap;
   margin: 0;
-  text-shadow: 0 2px 4px rgba(46, 125, 50, 0.1);
+  text-shadow: 0 2px 10px rgba(46, 125, 50, 0.2);
+  filter: drop-shadow(0 2px 4px rgba(27, 94, 32, 0.25));
+  transition: all 0.3s ease;
 }
 
 .app-bar-leading {
@@ -1616,15 +1620,19 @@
   background: var(--gradient-card);
   border-radius: 20px;
   padding: 20px;
-  margin: 20px 0;
+  margin: 20px auto;
+  max-width: 400px;
   border: 2px solid rgba(102, 187, 106, 0.3);
   box-shadow: var(--shadow-md);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
+  justify-content: center;
+  gap: 8px;
   flex-shrink: 0;
   animation: slideInLeft 0.3s ease-out 0.1s both;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
 }
 
 /* Watering Alerts Container */
@@ -1856,6 +1864,8 @@
   font-weight: 600;
   color: var(--schemes-on-surface);
   margin: 0;
+  text-align: center;
+  width: 100%;
 }
 
 .water-saved-value {
@@ -1866,6 +1876,8 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
+  text-align: center;
+  width: 100%;
 }
 
 /* Zones Carousel Section */
