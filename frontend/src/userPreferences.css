@@ -505,6 +505,11 @@
   margin-top: 40px;
   position: relative;
   overflow: hidden;
+  display: none; /* Hidden by default */
+}
+
+.zone-config-form.show {
+  display: block;
   animation: fadeInUp 0.4s ease-out 0.3s both;
 }
 

@@ -16,8 +16,8 @@ function escapeHtml(value) {
 function createZoneButtonMarkup(zone, index) {
   const nameFallback = `Zone ${index + 1}`;
   const zoneName = zone?.name && zone.name.trim().length > 0 ? zone.name.trim() : nameFallback;
-  const isAutomated = Boolean(zone?.auto_irrigation_enabled);
-  const buttonClass = `zone-button ${isAutomated ? 'zone-button-active' : 'zone-button-inactive'}`;
+  // Make all zone buttons green (active) by default since they're valid zones
+  const buttonClass = `zone-button zone-button-active`;
 
   const dataAttributes = [];
   if (zone?.id !== undefined && zone?.id !== null) {
@@ -219,6 +219,28 @@ export async function loadUserZones() {
     zonesContainer.innerHTML = userZones
       .map((zone, index) => createZoneButtonMarkup(zone, index))
       .join('');
+
+    // Add click handlers to zone buttons
+    zonesContainer.querySelectorAll('.zone-button[data-zone-id]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const zoneId = button.getAttribute('data-zone-id');
+        const zone = userZones.find(z => z.id === zoneId);
+        if (zone) {
+          // Load zone data into form
+          const { loadZoneIntoForm } = await import('./App.js');
+          loadZoneIntoForm(zone);
+          
+          // Show the form
+          const form = document.getElementById('zone-config-form');
+          if (form) {
+            form.classList.add('show');
+            setTimeout(() => {
+              form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 50);
+          }
+        }
+      });
+    });
   } catch (error) {
     console.error('Error loading user zones:', error);
     zonesContainer.innerHTML = `

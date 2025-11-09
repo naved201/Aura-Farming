@@ -64,16 +64,42 @@ function generateScheduleCardHTML(schedule, index, category) {
     statusBadge = 'Upcoming';
     statusClass = 'schedule-upcoming';
   }
+  
+  const showSelectionCheckbox = category === 'upcoming' || category === 'imminent';
+  const selectionCheckboxHTML = `
+          <label class="schedule-select-checkbox-label" aria-label="Select schedule">
+            <input type="checkbox" class="schedule-select-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
+            <span class="schedule-select-checkbox-custom"></span>
+          </label>
+        `;
+  
+  let leadingControls = '';
+  if (category === 'delayed') {
+    leadingControls = `
+        <div class="schedule-card-leading">
+          <label class="delayed-checkbox-label">
+            <input type="checkbox" class="delayed-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
+            <span class="delayed-checkbox-custom"></span>
+          </label>
+        </div>
+      `;
+  } else {
+    const indicatorHTML = category === 'imminent'
+      ? '<div class="schedule-drag-handle">⋮⋮</div>'
+      : '<div class="schedule-no-drag-indicator">📅</div>';
+      
+    leadingControls = `
+        <div class="schedule-card-leading">
+          ${showSelectionCheckbox ? selectionCheckboxHTML : ''}
+          ${indicatorHTML}
+        </div>
+      `;
+  }
     
     return `
     <div class="schedule-card ${statusClass} ${category !== 'upcoming' ? 'draggable' : ''}" draggable="${category !== 'upcoming'}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
       <div class="schedule-card-header">
-        ${category === 'delayed' ? `
-        <label class="delayed-checkbox-label">
-          <input type="checkbox" class="delayed-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
-          <span class="delayed-checkbox-custom"></span>
-        </label>
-        ` : category === 'imminent' ? '<div class="schedule-drag-handle">⋮⋮</div>' : '<div class="schedule-no-drag-indicator">📅</div>'}
+        ${leadingControls}
         <span class="schedule-zone-name">${schedule.zone}</span>
         <span class="schedule-status-badge">${statusBadge}</span>
       </div>
@@ -151,8 +177,25 @@ function generateScheduleCards() {
     <div class="schedule-columns-container">
       <div class="schedule-column" data-category="upcoming">
         <div class="schedule-column-header">
-          <h3 class="schedule-column-title">Upcoming</h3>
-          <span class="schedule-column-count">${categories.upcoming.length}</span>
+          <div class="schedule-column-title-group">
+            <h3 class="schedule-column-title">Upcoming</h3>
+            <span class="schedule-column-count">${categories.upcoming.length}</span>
+          </div>
+          <div class="schedule-column-actions" data-column="upcoming">
+            <button class="schedule-select-all-btn" data-column="upcoming" aria-label="Select all upcoming schedules">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Select All</span>
+            </button>
+            <button class="schedule-watered-btn" data-column="upcoming" aria-label="Mark selected upcoming schedules as watered" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Watered</span>
+            </button>
+          </div>
         </div>
         <div class="schedule-column-content" data-drop-zone="upcoming">
           ${categories.upcoming.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'upcoming')).join('')}
@@ -162,8 +205,25 @@ function generateScheduleCards() {
       
       <div class="schedule-column" data-category="imminent">
         <div class="schedule-column-header">
-          <h3 class="schedule-column-title">Imminent (≤5 min)</h3>
-          <span class="schedule-column-count">${categories.imminent.length}</span>
+          <div class="schedule-column-title-group">
+            <h3 class="schedule-column-title">Imminent (≤5 min)</h3>
+            <span class="schedule-column-count">${categories.imminent.length}</span>
+          </div>
+          <div class="schedule-column-actions" data-column="imminent">
+            <button class="schedule-select-all-btn" data-column="imminent" aria-label="Select all imminent schedules">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Select All</span>
+            </button>
+            <button class="schedule-watered-btn" data-column="imminent" aria-label="Mark selected imminent schedules as watered" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Watered</span>
+            </button>
+          </div>
         </div>
         <div class="schedule-column-content" data-drop-zone="imminent">
           ${categories.imminent.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'imminent')).join('')}
