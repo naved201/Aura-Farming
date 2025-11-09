@@ -1,5 +1,6 @@
 import { supabase } from './config.js';
 import { getCurrentUser } from './auth.js';
+import { analyzeZoneMoistureStatus, analyzeMoistureTrend, generateWateringSuggestions, fetchThresholds, predictThresholdCrossing } from './moistureAnalysis.js';
 
 let scheduleCategorizationIntervalId = null;
 const removedScheduleKeys = new Set();
@@ -41,6 +42,9 @@ export function setupDashboard() {
     // Load telemetry data for all zones
     loadZoneTelemetryData();
     
+    // Load and display watering alerts/suggestions
+    loadWateringAlerts();
+    
     // Setup update buttons
     const updateButtons = document.querySelectorAll('.update-button');
     updateButtons.forEach(btn => {
@@ -50,6 +54,8 @@ export function setupDashboard() {
         const zoneTitle = zoneContainer?.querySelector('.zone-title')?.textContent || 'Zone';
         // Refresh telemetry data when update button is clicked
         await loadZoneTelemetryData();
+        // Refresh alerts
+        await loadWateringAlerts();
         alert(`${zoneTitle} updated!`);
       });
     });
@@ -179,19 +185,12 @@ function generateZoneHTML(zone, index) {
               <div class="graph-x-axis">Hours</div>
             </div>
           </div>
-          <div class="graph-legend">
+          <div class="graph-legend" id="graph-legend-${zoneId}">
             <div class="legend-item">
-              <span class="legend-line legend-line-black"></span>
-              <span class="legend-text">~ moisture good <=> moisture medium</span>
+              <span class="legend-line" style="background: #4caf50; width: 40px; height: 3px; border-radius: 2px; display: inline-block;"></span>
+              <span class="legend-text">Soil Moisture (%)</span>
             </div>
-            <div class="legend-item">
-              <span class="legend-line legend-line-blue"></span>
-              <span class="legend-text">~ rainfall no <=> rainfall yes</span>
-            </div>
-            <div class="legend-item">
-              <span class="legend-dot"></span>
-              <span class="legend-text">~ no problem <=> yes plan : medium</span>
-            </div>
+            <!-- Threshold lines will be added dynamically -->
           </div>
         </div>
       </div>
@@ -218,10 +217,10 @@ async function loadZoneTelemetryData() {
       return;
     }
 
-    // Get all zones for the current user
+    // Get all zones for the current user (include crop_type for threshold analysis)
     const { data: zones, error: zonesError } = await supabase
       .from('zones')
-      .select('id, name')
+      .select('id, name, crop_type')
       .eq('owner', user.id);
 
     if (zonesError) {
@@ -260,6 +259,15 @@ async function loadZoneTelemetryData() {
       
       if (zoneWrapper) {
         updateZoneDisplay(zoneWrapper, telemetry);
+        
+        // Analyze moisture status and update zone with status indicator
+        if (zone.crop_type) {
+          analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type)
+            .then(status => {
+              updateZoneStatusIndicator(zoneWrapper, status);
+            })
+            .catch(err => console.error('Error analyzing zone status:', err));
+        }
       } else {
         console.log(`Could not find zone element for zone ${zone.name} (${zone.id})`);
       }
@@ -307,6 +315,189 @@ function updateZoneDisplay(zoneWrapper, telemetry) {
     // rain is boolean, display "Yes" or "No"
     rainfallValueElement.textContent = telemetry.rain ? 'Yes' : 'No';
   }
+}
+
+/**
+ * Update zone status indicator based on moisture analysis
+ * Changes the entire card background color based on status
+ */
+function updateZoneStatusIndicator(zoneWrapper, status) {
+  if (!zoneWrapper || !status) return;
+
+  // Find the zone container (the actual card)
+  const zoneContainer = zoneWrapper.querySelector('.zone-container');
+  if (!zoneContainer) return;
+
+  // Remove all status classes from the zone container
+  zoneContainer.classList.remove(
+    'zone-status-critical',
+    'zone-status-low',
+    'zone-status-normal',
+    'zone-status-saturated',
+    'zone-status-no_data',
+    'zone-status-unknown',
+    'zone-status-error'
+  );
+
+  // Map status to card styling
+  // For critical and low (very dry), use red
+  // For normal, use green
+  // For saturated, use blue
+  if (status.status === 'critical' || status.status === 'low') {
+    zoneContainer.classList.add('zone-status-critical');
+  } else if (status.status === 'normal') {
+    zoneContainer.classList.add('zone-status-normal');
+  } else if (status.status === 'saturated') {
+    zoneContainer.classList.add('zone-status-saturated');
+  }
+  // For no_data, unknown, error - no special styling (default card color)
+}
+
+/**
+ * Load and display watering alerts/suggestions
+ */
+async function loadWateringAlerts() {
+  try {
+    const suggestions = await generateWateringSuggestions();
+    const alertsContainer = document.getElementById('watering-alerts-container');
+    
+    if (!alertsContainer) {
+      console.warn('Watering alerts container not found');
+      return;
+    }
+
+    // Clear existing alerts
+    alertsContainer.innerHTML = '';
+
+    if (suggestions.length === 0) {
+      // No alerts - show a positive message or hide the container
+      alertsContainer.style.display = 'none';
+      return;
+    }
+
+    // Show the container
+    alertsContainer.style.display = 'block';
+
+    // Create alert banner
+    const alertBanner = document.createElement('div');
+    alertBanner.className = 'watering-alert-banner';
+    
+    // Determine overall alert level
+    const hasCritical = suggestions.some(s => s.status === 'critical');
+    const alertLevel = hasCritical ? 'critical' : 'warning';
+    
+    alertBanner.classList.add(`alert-${alertLevel}`);
+    
+    alertBanner.innerHTML = `
+      <div class="alert-header">
+        <div class="alert-icon">
+          ${hasCritical ? '⚠️' : '💧'}
+        </div>
+        <div class="alert-title">
+          <h3>Watering Recommendations</h3>
+          <p>${suggestions.length} zone${suggestions.length > 1 ? 's' : ''} ${hasCritical ? 'need immediate attention' : 'may need watering'}</p>
+        </div>
+        <button class="alert-close-btn" aria-label="Close alerts">×</button>
+      </div>
+      <div class="alert-content">
+        ${suggestions.map(suggestion => `
+          <div class="alert-item alert-item-${suggestion.status}" data-zone-id="${suggestion.zoneId}">
+            <div class="alert-item-icon">
+              ${suggestion.status === 'critical' ? '🔴' : '🟡'}
+            </div>
+            <div class="alert-item-content">
+              <div class="alert-item-title">${suggestion.zoneName}</div>
+              <div class="alert-item-message">${suggestion.message}</div>
+              <div class="alert-item-details">
+                <span>Crop: ${suggestion.cropType || 'Unknown'}</span>
+                <span>•</span>
+                <span>Moisture: ${suggestion.currentMoisture?.toFixed(1) || 'N/A'}%</span>
+                <span>•</span>
+                <span>Threshold: ${suggestion.minMoisture || 'N/A'}%</span>
+              </div>
+            </div>
+            <div class="alert-item-action">
+              <button class="alert-action-btn" data-zone-id="${suggestion.zoneId}">
+                View Zone
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    alertsContainer.appendChild(alertBanner);
+
+    // Add close button functionality
+    const closeBtn = alertBanner.querySelector('.alert-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        alertBanner.style.display = 'none';
+      });
+    }
+
+    // Add click handlers for "View Zone" buttons
+    const viewZoneButtons = alertBanner.querySelectorAll('.alert-action-btn');
+    viewZoneButtons.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const zoneId = btn.getAttribute('data-zone-id');
+        // Scroll to the zone in the carousel
+        scrollToZone(zoneId);
+        // Optionally expand the zone's graph
+        const graphToggle = document.querySelector(`.zone-graph-toggle[data-zone-id="${zoneId}"]`);
+        if (graphToggle) {
+          graphToggle.click();
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Error loading watering alerts:', error);
+  }
+}
+
+/**
+ * Scroll to a specific zone in the carousel
+ */
+function scrollToZone(zoneId) {
+  const zoneWrapper = document.querySelector(`.zone-item-wrapper[data-zone-id="${zoneId}"]`);
+  if (zoneWrapper) {
+    zoneWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+/**
+ * Update graph legend to show threshold information
+ */
+function updateGraphLegend(canvas, thresholds) {
+  if (!canvas || !thresholds) return;
+
+  const zoneId = canvas.getAttribute('data-zone-id');
+  if (!zoneId) return;
+
+  const legendContainer = document.getElementById(`graph-legend-${zoneId}`);
+  if (!legendContainer) return;
+
+  // Remove existing threshold legend items
+  const existingThresholdItems = legendContainer.querySelectorAll('.legend-item-threshold');
+  existingThresholdItems.forEach(item => item.remove());
+
+  // Add min threshold legend
+  const minLegend = document.createElement('div');
+  minLegend.className = 'legend-item legend-item-threshold';
+  minLegend.innerHTML = `
+    <span class="legend-line" style="background: #f44336; width: 40px; height: 3px; border-radius: 2px; display: inline-block; border-style: dashed; border-width: 2px; border-color: #f44336; border-top: none; border-bottom: none;"></span>
+    <span class="legend-text">Min: ${thresholds.min_moisture}%</span>
+  `;
+  legendContainer.appendChild(minLegend);
+
+  // Add max threshold legend
+  const maxLegend = document.createElement('div');
+  maxLegend.className = 'legend-item legend-item-threshold';
+  maxLegend.innerHTML = `
+    <span class="legend-line" style="background: #ff9800; width: 40px; height: 3px; border-radius: 2px; display: inline-block; border-style: dashed; border-width: 2px; border-color: #ff9800; border-top: none; border-bottom: none;"></span>
+    <span class="legend-text">Max: ${thresholds.max_moisture}%</span>
+  `;
+  legendContainer.appendChild(maxLegend);
 }
 
 function setupZonesCarousel() {
@@ -1475,8 +1666,9 @@ function setupZoneGraphToggles() {
       e.preventDefault();
       e.stopPropagation();
       
-      const zoneNumber = button.getAttribute('data-zone');
-      const graphSection = document.querySelector(`.zone-graph-section[data-zone="${zoneNumber}"]`);
+      // Get zone ID from button's data-zone-id attribute
+      const zoneId = button.getAttribute('data-zone-id');
+      const graphSection = document.querySelector(`.zone-graph-section[data-zone-id="${zoneId}"]`);
       
       if (!graphSection) return;
       
@@ -1534,9 +1726,11 @@ function setupZoneGraphToggles() {
         // Initialize/reinitialize graph for this zone to ensure correct sizing
         const canvas = graphSection.querySelector('.zone-moisture-graph');
         if (canvas) {
+          // Get zone ID from canvas or graph section
+          const zoneId = canvas.getAttribute('data-zone-id') || graphSection.getAttribute('data-zone-id');
           // Wait for the transition to start before calculating size
           setTimeout(() => {
-            setupZoneMoistureGraph(canvas, zoneNumber);
+            setupZoneMoistureGraph(canvas, zoneId);
           }, 100);
         }
       }
@@ -2115,8 +2309,145 @@ function setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber) {
   }
 }
 
-function setupZoneMoistureGraph(canvas, zoneNumber) {
+/**
+ * Fetch hourly moisture readings from Supabase for a specific zone
+ * Returns readings closest to exact hour marks (x:00:00) from the start of today to current hour
+ * Updates dynamically whenever the graph is opened
+ */
+async function fetchHourlyMoistureData(zoneId) {
+  try {
+    // Get current date/time and calculate start of today
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const currentHour = now.getHours();
+    
+    // Fetch all telemetry data for this zone from the start of today
+    const { data: telemetryData, error } = await supabase
+      .from('telemetry')
+      .select('ts, moisture')
+      .eq('zone_id', zoneId)
+      .gte('ts', startOfToday.toISOString())
+      .order('ts', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching telemetry data:', error);
+      return [];
+    }
+
+    if (!telemetryData || telemetryData.length === 0) {
+      console.log(`No telemetry data found for zone ${zoneId}`);
+      return [];
+    }
+
+    // Group readings by hour and find the reading closest to x:00:00 for each hour
+    // Prioritize readings exactly at x:00:00, but also accept readings within a reasonable window
+    const hourlyReadings = new Map();
+    
+    // Determine which hours to check (hours 0-23 for today)
+    const hoursToCheck = [];
+    for (let i = 0; i < 24; i++) {
+      hoursToCheck.push(i);
+    }
+    
+    // For each hour, find the reading closest to x:00:00
+    hoursToCheck.forEach(targetHour => {
+      let closestReading = null;
+      let minDistance = Infinity;
+      
+      telemetryData.forEach(reading => {
+        if (reading.moisture === null || reading.moisture === undefined) return;
+        
+        const readingDate = new Date(reading.ts);
+        const readingHour = readingDate.getHours();
+        const minutes = readingDate.getMinutes();
+        const seconds = readingDate.getSeconds();
+        
+        // Only consider readings from today at the target hour
+        // Check if this reading is from today and matches the target hour
+        const isToday = readingDate.getDate() === now.getDate() &&
+                       readingDate.getMonth() === now.getMonth() &&
+                       readingDate.getFullYear() === now.getFullYear();
+        
+        if (isToday && readingHour === targetHour) {
+          // Calculate distance from exact hour (x:00:00)
+          // Distance is in seconds (minutes * 60 + seconds)
+          const distanceFromHour = Math.abs(minutes * 60 + seconds);
+          
+          // Prefer readings exactly at x:00:00 (distance = 0), but also accept readings
+          // within 10 minutes of the hour mark to account for slight timing variations
+          // This ensures we capture readings that are close to the exact hour
+          if (distanceFromHour <= 10 * 60 && distanceFromHour < minDistance) {
+            minDistance = distanceFromHour;
+            closestReading = {
+              hour: targetHour,
+              moisture: reading.moisture,
+              timestamp: readingDate,
+              distance: distanceFromHour
+            };
+          }
+        }
+      });
+      
+      // If we found a reading for this hour, add it to the map
+      if (closestReading) {
+        hourlyReadings.set(targetHour, closestReading);
+      }
+    });
+
+    // Convert map to array, filter to only include hours up to current hour, and sort by hour
+    const readingsArray = Array.from(hourlyReadings.values())
+      .filter(r => r.hour <= currentHour) // Only show hours up to current hour
+      .sort((a, b) => a.hour - b.hour);
+
+    return readingsArray;
+  } catch (error) {
+    console.error('Error in fetchHourlyMoistureData:', error);
+    return [];
+  }
+}
+
+async function setupZoneMoistureGraph(canvas, zoneId) {
   if (!canvas) return;
+
+  // Get zoneId from canvas if not provided
+  if (!zoneId) {
+    zoneId = canvas.getAttribute('data-zone-id');
+  }
+
+  if (!zoneId) {
+    console.error('No zone ID provided for graph');
+    return;
+  }
+
+  // Fetch zone data to get crop_type for threshold lookup
+  const user = await getCurrentUser();
+  if (!user) {
+    console.error('User not authenticated');
+    return;
+  }
+
+  const { data: zone, error: zoneError } = await supabase
+    .from('zones')
+    .select('id, name, crop_type')
+    .eq('id', zoneId)
+    .eq('owner', user.id)
+    .maybeSingle();
+
+  if (zoneError || !zone) {
+    console.error('Error fetching zone data:', zoneError);
+    return;
+  }
+
+  // Fetch thresholds for this crop
+  let thresholds = null;
+  if (zone.crop_type) {
+    const thresholdsMap = await fetchThresholds();
+    const cropNameLower = zone.crop_type.toLowerCase().trim();
+    thresholds = thresholdsMap.get(cropNameLower);
+  }
+
+  // Fetch real moisture data from Supabase
+  const hourlyReadings = await fetchHourlyMoistureData(zoneId);
 
   // Wait for canvas to be properly sized and visible
   setTimeout(() => {
@@ -2150,129 +2481,207 @@ function setupZoneMoistureGraph(canvas, zoneNumber) {
     // Scale context for high DPI displays
     ctx.scale(dpr, dpr);
 
-  // Set up graph area (use the CSS width, not the scaled width)
-  const padding = { top: 20, right: 20, bottom: 30, left: 40 };
-  const graphWidth = width - padding.left - padding.right;
-  const graphHeight = height - padding.top - padding.bottom;
+    // Set up graph area (use the CSS width, not the scaled width)
+    const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+    const graphWidth = width - padding.left - padding.right;
+    const graphHeight = height - padding.top - padding.bottom;
 
-  // Clear canvas (after scaling, use the logical dimensions)
-  ctx.clearRect(0, 0, width, height);
+    // Clear canvas (after scaling, use the logical dimensions)
+    ctx.clearRect(0, 0, width, height);
 
-  // Draw axes
-  ctx.strokeStyle = '#666';
-  ctx.lineWidth = 1;
-  
-  // Y-axis
-  ctx.beginPath();
-  ctx.moveTo(padding.left, padding.top);
-  ctx.lineTo(padding.left, height - padding.bottom);
-  ctx.stroke();
-
-  // X-axis
-  ctx.beginPath();
-  ctx.moveTo(padding.left, height - padding.bottom);
-  ctx.lineTo(width - padding.right, height - padding.bottom);
-  ctx.stroke();
-
-  // Generate sample data
-  const hours = 24;
-  const dataPoints = [];
-  for (let i = 0; i <= hours; i++) {
-    dataPoints.push({
-      hour: i,
-      moisture1: 50 + Math.sin(i / 4) * 20 + Math.random() * 10, // Black line
-      moisture2: 60 + Math.cos(i / 3) * 15 + Math.random() * 8   // Blue line
-    });
-  }
-
-  // Draw grid lines
-  ctx.strokeStyle = '#e0e0e0';
-  ctx.lineWidth = 0.5;
-  
-  // Horizontal grid lines
-  for (let i = 0; i <= 5; i++) {
-    const y = padding.top + (graphHeight / 5) * i;
+    // Draw axes
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 1;
+    
+    // Y-axis
     ctx.beginPath();
-    ctx.moveTo(padding.left, y);
-    ctx.lineTo(width - padding.right, y);
+    ctx.moveTo(padding.left, padding.top);
+    ctx.lineTo(padding.left, height - padding.bottom);
     ctx.stroke();
-  }
 
-  // Vertical grid lines
-  for (let i = 0; i <= 6; i++) {
-    const x = padding.left + (graphWidth / 6) * i;
+    // X-axis
     ctx.beginPath();
-    ctx.moveTo(x, padding.top);
-    ctx.lineTo(x, height - padding.bottom);
+    ctx.moveTo(padding.left, height - padding.bottom);
+    ctx.lineTo(width - padding.right, height - padding.bottom);
     ctx.stroke();
-  }
 
-  // Draw black line (moisture good/medium)
-  ctx.strokeStyle = '#000';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  dataPoints.forEach((point, index) => {
-    const x = padding.left + (point.hour / hours) * graphWidth;
-    const y = height - padding.bottom - (point.moisture1 / 100) * graphHeight;
-    if (index === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
+    // Prepare data points from real readings
+    // hourlyReadings already contains readings sorted by hour, up to current hour
+    const dataPoints = hourlyReadings.map(reading => ({
+      hour: reading.hour,
+      moisture: reading.moisture
+    }));
+
+    // If no data, show a message or empty graph
+    if (dataPoints.length === 0) {
+      ctx.fillStyle = '#999';
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('No data available', width / 2, height / 2);
+      return;
     }
-  });
-  ctx.stroke();
 
-  // Draw blue line (rainfall yes/no)
-  ctx.strokeStyle = '#2196F3';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  dataPoints.forEach((point, index) => {
-    const x = padding.left + (point.hour / hours) * graphWidth;
-    const y = height - padding.bottom - (point.moisture2 / 100) * graphHeight;
-    if (index === 0) {
-      ctx.moveTo(x, y);
-    } else {
-      ctx.lineTo(x, y);
-    }
-  });
-  ctx.stroke();
+    // Draw threshold lines if thresholds are available
+    if (thresholds) {
+      const minMoisture = thresholds.min_moisture;
+      const maxMoisture = thresholds.max_moisture;
 
-  // Draw highlight area where blue > black
-  ctx.fillStyle = 'rgba(33, 150, 243, 0.1)';
-  ctx.beginPath();
-  dataPoints.forEach((point, index) => {
-    const x = padding.left + (point.hour / hours) * graphWidth;
-    const y1 = height - padding.bottom - (point.moisture1 / 100) * graphHeight;
-    const y2 = height - padding.bottom - (point.moisture2 / 100) * graphHeight;
-    if (point.moisture2 > point.moisture1) {
-      if (index === 0) {
-        ctx.moveTo(x, y1);
+      // Draw min threshold line (red, dashed)
+      if (minMoisture >= 0 && minMoisture <= 100) {
+        const minY = height - padding.bottom - (minMoisture / 100) * graphHeight;
+        ctx.strokeStyle = '#f44336'; // Red
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]); // Dashed line
+        ctx.beginPath();
+        ctx.moveTo(padding.left, minY);
+        ctx.lineTo(width - padding.right, minY);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset to solid
+
+        // Label for min threshold
+        ctx.fillStyle = '#f44336';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Min: ${minMoisture}%`, width - padding.right - 50, minY - 5);
       }
-      ctx.lineTo(x, y2);
-    }
-  });
-  // Close the path
-  dataPoints.slice().reverse().forEach((point, index) => {
-    const x = padding.left + (point.hour / hours) * graphWidth;
-    const y1 = height - padding.bottom - (point.moisture1 / 100) * graphHeight;
-    if (point.moisture2 > point.moisture1) {
-      ctx.lineTo(x, y1);
-    }
-  });
-  ctx.closePath();
-  ctx.fill();
 
-  // Draw axis labels
-  ctx.fillStyle = '#666';
-  ctx.font = '11px sans-serif';
-  ctx.textAlign = 'center';
-  
-  // X-axis labels (hours)
-  for (let i = 0; i <= 6; i++) {
-    const x = padding.left + (graphWidth / 6) * i;
-    const hour = Math.round((i / 6) * hours);
-    ctx.fillText(hour.toString(), x, height - padding.bottom + 15);
-  }
+      // Draw max threshold line (orange, dashed)
+      if (maxMoisture >= 0 && maxMoisture <= 100) {
+        const maxY = height - padding.bottom - (maxMoisture / 100) * graphHeight;
+        ctx.strokeStyle = '#ff9800'; // Orange
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]); // Dashed line
+        ctx.beginPath();
+        ctx.moveTo(padding.left, maxY);
+        ctx.lineTo(width - padding.right, maxY);
+        ctx.stroke();
+        ctx.setLineDash([]); // Reset to solid
+
+        // Label for max threshold
+        ctx.fillStyle = '#ff9800';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Max: ${maxMoisture}%`, width - padding.right - 50, maxY - 5);
+      }
+
+      // Highlight area below minimum threshold (red background)
+      if (minMoisture >= 0 && minMoisture <= 100) {
+        const minY = height - padding.bottom - (minMoisture / 100) * graphHeight;
+        ctx.fillStyle = 'rgba(244, 67, 54, 0.1)'; // Light red
+        ctx.fillRect(padding.left, minY, graphWidth, height - padding.bottom - minY);
+      }
+
+      // Note: Removed blue highlight above maximum threshold as per user request
+    }
+
+    // Draw grid lines
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    
+    // Horizontal grid lines
+    for (let i = 0; i <= 5; i++) {
+      const y = padding.top + (graphHeight / 5) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(width - padding.right, y);
+      ctx.stroke();
+    }
+
+    // Vertical grid lines - show grid for each hour that has data
+    const numDataPoints = dataPoints.length;
+    if (numDataPoints > 1) {
+      for (let i = 0; i < numDataPoints; i++) {
+        const x = padding.left + (i / (numDataPoints - 1)) * graphWidth;
+        ctx.beginPath();
+        ctx.moveTo(x, padding.top);
+        ctx.lineTo(x, height - padding.bottom);
+        ctx.stroke();
+      }
+    } else if (numDataPoints === 1) {
+      // Single data point - draw a vertical line at that point
+      const x = padding.left + graphWidth / 2;
+      ctx.beginPath();
+      ctx.moveTo(x, padding.top);
+      ctx.lineTo(x, height - padding.bottom);
+      ctx.stroke();
+    }
+
+    // Draw moisture line (only if we have more than one point)
+    if (numDataPoints > 1) {
+      // Determine line color based on thresholds if available
+      let lineColor = '#4caf50'; // Default green
+      if (thresholds && dataPoints.length > 0) {
+        const lastMoisture = dataPoints[dataPoints.length - 1].moisture;
+        if (lastMoisture < thresholds.min_moisture) {
+          lineColor = '#f44336'; // Red if below minimum
+        } else if (lastMoisture > thresholds.max_moisture) {
+          lineColor = '#2196f3'; // Blue if above maximum
+        } else if (lastMoisture < thresholds.min_moisture + (thresholds.max_moisture - thresholds.min_moisture) * 0.1) {
+          lineColor = '#ff9800'; // Orange if close to minimum
+        }
+      }
+
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      dataPoints.forEach((point, index) => {
+        const x = padding.left + (index / (numDataPoints - 1)) * graphWidth;
+        // Moisture is already a percentage (0-100), clamp it to ensure it's within bounds
+        const moisture = Math.max(0, Math.min(100, point.moisture));
+        const y = height - padding.bottom - (moisture / 100) * graphHeight;
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+    }
+
+    // Draw data points as circles with color coding
+    dataPoints.forEach((point, index) => {
+      let x;
+      if (numDataPoints === 1) {
+        x = padding.left + graphWidth / 2;
+      } else {
+        x = padding.left + (index / (numDataPoints - 1)) * graphWidth;
+      }
+      const moisture = Math.max(0, Math.min(100, point.moisture));
+      const y = height - padding.bottom - (moisture / 100) * graphHeight;
+      
+      // Color code based on thresholds
+      let pointColor = '#4caf50'; // Default green
+      if (thresholds) {
+        if (moisture < thresholds.min_moisture) {
+          pointColor = '#f44336'; // Red
+        } else if (moisture > thresholds.max_moisture) {
+          pointColor = '#2196f3'; // Blue
+        } else if (moisture < thresholds.min_moisture + (thresholds.max_moisture - thresholds.min_moisture) * 0.1) {
+          pointColor = '#ff9800'; // Orange
+        }
+      }
+
+      ctx.fillStyle = pointColor;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+
+    // Draw axis labels
+    ctx.fillStyle = '#666';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center';
+    
+    // X-axis labels (hours) - show hour labels for data points
+    dataPoints.forEach((point, index) => {
+      let x;
+      if (numDataPoints === 1) {
+        x = padding.left + graphWidth / 2;
+      } else {
+        x = padding.left + (index / (numDataPoints - 1)) * graphWidth;
+      }
+      ctx.fillText(point.hour.toString(), x, height - padding.bottom + 15);
+    });
 
     // Y-axis labels (moisture)
     ctx.textAlign = 'right';
@@ -2282,6 +2691,11 @@ function setupZoneMoistureGraph(canvas, zoneNumber) {
       const value = Math.round((i / 5) * 100);
       ctx.fillText(value.toString(), padding.left - 8, y + 3);
     }
+
+    // Update graph legend to include threshold information (after a short delay to ensure DOM is ready)
+    setTimeout(() => {
+      updateGraphLegend(canvas, thresholds);
+    }, 150);
   }, 100);
   
   // Handle window resize for this specific canvas
@@ -2290,7 +2704,8 @@ function setupZoneMoistureGraph(canvas, zoneNumber) {
     clearTimeout(resizeTimeout);
     resizeTimeout = setTimeout(() => {
       if (canvas.offsetParent !== null) { // Only if visible
-        setupZoneMoistureGraph(canvas, zoneNumber);
+        const canvasZoneId = canvas.getAttribute('data-zone-id') || zoneId;
+        setupZoneMoistureGraph(canvas, canvasZoneId);
       }
     }, 200);
   };
