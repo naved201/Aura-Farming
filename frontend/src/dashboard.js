@@ -1,6 +1,6 @@
 import { supabase } from './config.js';
 import { getCurrentUser } from './auth.js';
-import { analyzeZoneMoistureStatus, analyzeMoistureTrend, generateWateringSuggestions, fetchThresholds, predictThresholdCrossing, calculateSoilHealthRisk } from './moistureAnalysis.js';
+import { analyzeZoneMoistureStatus, analyzeMoistureTrend, generateWateringSuggestions, fetchThresholds, predictThresholdCrossing, calculateSoilHealthRisk, calculateThresholdCrossings } from './moistureAnalysis.js';
 
 let scheduleCategorizationIntervalId = null;
 const removedScheduleKeys = new Set();
@@ -301,6 +301,13 @@ async function loadZoneTelemetryData() {
               updateSoilHealthDisplay(zoneWrapper, riskData);
             })
             .catch(err => console.error('Error calculating soil health risk:', err));
+          
+          // Calculate and update threshold crossings (separate from soil health)
+          calculateThresholdCrossings(zone.id, zone.crop_type)
+            .then(crossingsData => {
+              updateThresholdCrossingsDisplay(zoneWrapper, crossingsData);
+            })
+            .catch(err => console.error('Error calculating threshold crossings:', err));
         }
       } else {
         console.log(`Could not find zone element for zone ${zone.name} (${zone.id})`);
@@ -475,74 +482,80 @@ function updateSoilHealthDisplay(zoneWrapper, riskData) {
         explanationText = 'Insufficient data to assess soil health risk. No telemetry data available for this zone.';
         explanationElement.classList.add('soil-health-explanation-no-data');
       } else if (riskData.risk === 'error') {
-        // Check if it's a threshold crossing error or a calculation error
-        if (riskData.hasThresholdCrossingError) {
-          explanationText = riskData.message || 'Error: Multiple threshold crossings detected.';
-          explanationElement.classList.add('soil-health-explanation-error');
-        } else {
-          explanationText = 'Error calculating soil health risk. Please try again later.';
-          explanationElement.classList.add('soil-health-explanation-error');
-        }
+        explanationText = 'Error calculating soil health risk. Please try again later.';
+        explanationElement.classList.add('soil-health-explanation-error');
       } else {
         explanationText = riskData.message || 'Unable to determine soil health status.';
       }
       explanationElement.textContent = explanationText;
     }
+  }
+}
 
-    // Update threshold crossings section
-    const thresholdCrossingsSection = document.getElementById(`zone-${zoneId}-threshold-crossings`);
-    const thresholdCrossingsContent = document.getElementById(`zone-${zoneId}-threshold-crossings-content`);
+/**
+ * Update threshold crossings display (separate from soil health)
+ * Shows threshold crossing information in the Zone Information section
+ */
+function updateThresholdCrossingsDisplay(zoneWrapper, crossingsData) {
+  if (!zoneWrapper || !crossingsData) return;
+
+  const zoneId = zoneWrapper.getAttribute('data-zone-id');
+  
+  // Update threshold crossings section
+  const thresholdCrossingsSection = document.getElementById(`zone-${zoneId}-threshold-crossings`);
+  const thresholdCrossingsContent = document.getElementById(`zone-${zoneId}-threshold-crossings-content`);
+  
+  if (thresholdCrossingsSection && thresholdCrossingsContent) {
+    // Always show the section (even if no crossings, to show healthy state)
+    thresholdCrossingsSection.style.display = 'block';
     
-    if (thresholdCrossingsSection && thresholdCrossingsContent) {
-      // Show section if there are any crossings or if there's an error
-      if (riskData.hasThresholdCrossingError || 
-          (riskData.crossingsAboveMax > 0 || riskData.crossingsBelowMin > 0)) {
-        thresholdCrossingsSection.style.display = 'block';
-        
-        let crossingsHTML = '';
-        
-        // Show crossings above max
-        if (riskData.crossingsAboveMax > 0) {
-          crossingsHTML += `
-            <div class="threshold-crossing-item ${riskData.crossingsAboveMax >= 3 ? 'threshold-crossing-error' : ''}">
-              <div class="threshold-crossing-icon">⚠️</div>
-              <div class="threshold-crossing-details">
-                <div class="threshold-crossing-count">Exceeded maximum threshold (${riskData.maxMoisture}%) ${riskData.crossingsAboveMax} time${riskData.crossingsAboveMax !== 1 ? 's' : ''}</div>
-                ${riskData.crossingsAboveMax >= 3 ? '<div class="threshold-crossing-suggestion">💡 Suggestion: Reduce watering to prevent over-saturation</div>' : ''}
-              </div>
-            </div>
-          `;
-        }
-        
-        // Show crossings below min
-        if (riskData.crossingsBelowMin > 0) {
-          crossingsHTML += `
-            <div class="threshold-crossing-item ${riskData.crossingsBelowMin >= 3 ? 'threshold-crossing-error' : ''}">
-              <div class="threshold-crossing-icon">⚠️</div>
-              <div class="threshold-crossing-details">
-                <div class="threshold-crossing-count">Fell below minimum threshold (${riskData.minMoisture}%) ${riskData.crossingsBelowMin} time${riskData.crossingsBelowMin !== 1 ? 's' : ''}</div>
-                ${riskData.crossingsBelowMin >= 3 ? '<div class="threshold-crossing-suggestion">💡 Suggestion: Add more water to maintain adequate moisture levels</div>' : ''}
-              </div>
-            </div>
-          `;
-        }
-        
-        // If no crossings, show healthy message
-        if (riskData.crossingsAboveMax === 0 && riskData.crossingsBelowMin === 0) {
-          crossingsHTML = `
-            <div class="threshold-crossing-item threshold-crossing-healthy">
-              <div class="threshold-crossing-icon">✅</div>
-              <div class="threshold-crossing-details">
-                <div class="threshold-crossing-count">No threshold crossings detected. Soil moisture levels are stable.</div>
-              </div>
-            </div>
-          `;
-        }
-        
-        thresholdCrossingsContent.innerHTML = crossingsHTML;
-      } else {
-        thresholdCrossingsSection.style.display = 'none';
-      }
+    let crossingsHTML = '';
+    
+    // Show crossings above max
+    if (crossingsData.crossingsAboveMax > 0) {
+      crossingsHTML += `
+        <div class="threshold-crossing-item ${crossingsData.crossingsAboveMax >= 3 ? 'threshold-crossing-error' : 'threshold-crossing-warning'}">
+          <div class="threshold-crossing-icon">⚠️</div>
+          <div class="threshold-crossing-details">
+            <div class="threshold-crossing-count">Exceeded maximum threshold (${crossingsData.maxMoisture}%) ${crossingsData.crossingsAboveMax} time${crossingsData.crossingsAboveMax !== 1 ? 's' : ''}</div>
+            ${crossingsData.crossingsAboveMax >= 3 ? '<div class="threshold-crossing-suggestion">💡 Suggestion: Reduce watering to prevent over-saturation</div>' : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    // Show crossings below min
+    if (crossingsData.crossingsBelowMin > 0) {
+      crossingsHTML += `
+        <div class="threshold-crossing-item ${crossingsData.crossingsBelowMin >= 3 ? 'threshold-crossing-error' : 'threshold-crossing-warning'}">
+          <div class="threshold-crossing-icon">⚠️</div>
+          <div class="threshold-crossing-details">
+            <div class="threshold-crossing-count">Fell below minimum threshold (${crossingsData.minMoisture}%) ${crossingsData.crossingsBelowMin} time${crossingsData.crossingsBelowMin !== 1 ? 's' : ''}</div>
+            ${crossingsData.crossingsBelowMin >= 3 ? '<div class="threshold-crossing-suggestion">💡 Suggestion: Add more water to maintain adequate moisture levels</div>' : ''}
+          </div>
+        </div>
+      `;
+    }
+    
+    // If no crossings, show healthy message
+    if (crossingsData.crossingsAboveMax === 0 && crossingsData.crossingsBelowMin === 0) {
+      crossingsHTML = `
+        <div class="threshold-crossing-item threshold-crossing-healthy">
+          <div class="threshold-crossing-icon">✅</div>
+          <div class="threshold-crossing-details">
+            <div class="threshold-crossing-count">No threshold crossings detected. Soil moisture levels are stable.</div>
+          </div>
+        </div>
+      `;
+    }
+    
+    thresholdCrossingsContent.innerHTML = crossingsHTML;
+    
+    // Show error alert if 3+ crossings
+    if (crossingsData.hasError) {
+      // Display error message similar to when moisture is below min_threshold
+      console.warn(`[Threshold Crossings] Error detected for zone ${zoneId}:`, crossingsData.suggestions);
+      // You can add a visual alert/notification here if needed
     }
   }
 }

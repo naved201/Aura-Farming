@@ -3073,6 +3073,7 @@
   color: #c62828;
 }
 
+/* Soil health error states (for calculation errors only, not threshold crossings) */
 .soil-health-indicator-panel.soil-health-unknown,
 .soil-health-indicator-panel.soil-health-error,
 .soil-health-indicator-panel.soil-health-no-data {
@@ -3084,17 +3085,7 @@
 .soil-health-indicator-panel.soil-health-error .data-value,
 .soil-health-indicator-panel.soil-health-no-data .data-value {
   color: #616161;
-}
-
-/* Error state for threshold crossings */
-.soil-health-indicator-panel.soil-health-error {
-  background: rgba(244, 67, 54, 0.2);
-  border-color: rgba(244, 67, 54, 0.5);
-}
-
-.soil-health-indicator-panel.soil-health-error .data-value {
-  color: #c62828;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 /* Zone Information Section Content (inside the collapsible section) */
@@ -3203,8 +3194,13 @@
 }
 
 .threshold-crossing-item.threshold-crossing-error {
-  background: rgba(244, 67, 54, 0.1);
+  background: rgba(244, 67, 54, 0.15);
   border-left-color: #f44336;
+}
+
+.threshold-crossing-item.threshold-crossing-warning {
+  background: rgba(255, 193, 7, 0.1);
+  border-left-color: #ffc107;
 }
 
 .threshold-crossing-item.threshold-crossing-healthy {
