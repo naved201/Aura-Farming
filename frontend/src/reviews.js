@@ -438,6 +438,11 @@ export function createReviewsComponent() {
             </div>
           </div>
 
+          <!-- Watering Alerts Section -->
+          <div id="watering-alerts-container" class="watering-alerts-container">
+            <!-- Alerts will be dynamically inserted here -->
+          </div>
+
           <!-- Water Saved Metric -->
           <div class="water-saved-metric">
             <p class="water-saved-label">Water saved</p>
