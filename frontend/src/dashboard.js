@@ -187,7 +187,7 @@ function generateZoneHTML(zone, index) {
           </div>
           <div class="graph-legend" id="graph-legend-${zoneId}">
             <div class="legend-item">
-              <span class="legend-line" style="background: #4caf50; width: 40px; height: 3px; border-radius: 2px; display: inline-block;"></span>
+              <span class="legend-line" style="background: #000000; width: 40px; height: 3px; border-radius: 2px; display: inline-block;"></span>
               <span class="legend-text">Soil Moisture (%)</span>
             </div>
             <!-- Threshold lines will be added dynamically -->
@@ -481,20 +481,20 @@ function updateGraphLegend(canvas, thresholds) {
   const existingThresholdItems = legendContainer.querySelectorAll('.legend-item-threshold');
   existingThresholdItems.forEach(item => item.remove());
 
-  // Add min threshold legend
+  // Add min threshold legend (red dotted line)
   const minLegend = document.createElement('div');
   minLegend.className = 'legend-item legend-item-threshold';
   minLegend.innerHTML = `
-    <span class="legend-line" style="background: #f44336; width: 40px; height: 3px; border-radius: 2px; display: inline-block; border-style: dashed; border-width: 2px; border-color: #f44336; border-top: none; border-bottom: none;"></span>
+    <span class="legend-line" style="background: #f44336; width: 40px; height: 2px; border-radius: 0; display: inline-block; border-top: 2px dotted #f44336;"></span>
     <span class="legend-text">Min: ${thresholds.min_moisture}%</span>
   `;
   legendContainer.appendChild(minLegend);
 
-  // Add max threshold legend
+  // Add max threshold legend (blue dotted line)
   const maxLegend = document.createElement('div');
   maxLegend.className = 'legend-item legend-item-threshold';
   maxLegend.innerHTML = `
-    <span class="legend-line" style="background: #ff9800; width: 40px; height: 3px; border-radius: 2px; display: inline-block; border-style: dashed; border-width: 2px; border-color: #ff9800; border-top: none; border-bottom: none;"></span>
+    <span class="legend-line" style="background: #2196f3; width: 40px; height: 2px; border-radius: 0; display: inline-block; border-top: 2px dotted #2196f3;"></span>
     <span class="legend-text">Max: ${thresholds.max_moisture}%</span>
   `;
   legendContainer.appendChild(maxLegend);
@@ -2310,8 +2310,8 @@ function setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber) {
 }
 
 /**
- * Fetch hourly moisture readings from Supabase for a specific zone
- * Returns readings closest to exact hour marks (x:00:00) from the start of today to current hour
+ * Fetch all moisture readings from Supabase for a specific zone from today
+ * Returns all readings from the start of today to now
  * Updates dynamically whenever the graph is opened
  */
 async function fetchHourlyMoistureData(zoneId) {
@@ -2319,7 +2319,6 @@ async function fetchHourlyMoistureData(zoneId) {
     // Get current date/time and calculate start of today
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const currentHour = now.getHours();
     
     // Fetch all telemetry data for this zone from the start of today
     const { data: telemetryData, error } = await supabase
@@ -2339,65 +2338,22 @@ async function fetchHourlyMoistureData(zoneId) {
       return [];
     }
 
-    // Group readings by hour and find the reading closest to x:00:00 for each hour
-    // Prioritize readings exactly at x:00:00, but also accept readings within a reasonable window
-    const hourlyReadings = new Map();
-    
-    // Determine which hours to check (hours 0-23 for today)
-    const hoursToCheck = [];
-    for (let i = 0; i < 24; i++) {
-      hoursToCheck.push(i);
-    }
-    
-    // For each hour, find the reading closest to x:00:00
-    hoursToCheck.forEach(targetHour => {
-      let closestReading = null;
-      let minDistance = Infinity;
-      
-      telemetryData.forEach(reading => {
-        if (reading.moisture === null || reading.moisture === undefined) return;
-        
+    // Filter out readings with null/undefined moisture and convert to graph format
+    const readingsArray = telemetryData
+      .filter(reading => reading.moisture !== null && reading.moisture !== undefined)
+      .map(reading => {
         const readingDate = new Date(reading.ts);
-        const readingHour = readingDate.getHours();
-        const minutes = readingDate.getMinutes();
-        const seconds = readingDate.getSeconds();
-        
-        // Only consider readings from today at the target hour
-        // Check if this reading is from today and matches the target hour
-        const isToday = readingDate.getDate() === now.getDate() &&
-                       readingDate.getMonth() === now.getMonth() &&
-                       readingDate.getFullYear() === now.getFullYear();
-        
-        if (isToday && readingHour === targetHour) {
-          // Calculate distance from exact hour (x:00:00)
-          // Distance is in seconds (minutes * 60 + seconds)
-          const distanceFromHour = Math.abs(minutes * 60 + seconds);
-          
-          // Prefer readings exactly at x:00:00 (distance = 0), but also accept readings
-          // within 10 minutes of the hour mark to account for slight timing variations
-          // This ensures we capture readings that are close to the exact hour
-          if (distanceFromHour <= 10 * 60 && distanceFromHour < minDistance) {
-            minDistance = distanceFromHour;
-            closestReading = {
-              hour: targetHour,
-              moisture: reading.moisture,
-              timestamp: readingDate,
-              distance: distanceFromHour
-            };
-          }
-        }
-      });
-      
-      // If we found a reading for this hour, add it to the map
-      if (closestReading) {
-        hourlyReadings.set(targetHour, closestReading);
-      }
-    });
-
-    // Convert map to array, filter to only include hours up to current hour, and sort by hour
-    const readingsArray = Array.from(hourlyReadings.values())
-      .filter(r => r.hour <= currentHour) // Only show hours up to current hour
-      .sort((a, b) => a.hour - b.hour);
+        // Calculate hours since start of today (can be fractional, e.g., 14.5 for 2:30 PM)
+        const hoursSinceStart = (readingDate - startOfToday) / (1000 * 60 * 60);
+        return {
+          hour: hoursSinceStart, // Use fractional hours for x-axis positioning
+          moisture: reading.moisture,
+          timestamp: readingDate,
+          hourOfDay: readingDate.getHours(),
+          minutes: readingDate.getMinutes()
+        };
+      })
+      .sort((a, b) => a.hour - b.hour); // Sort by time
 
     return readingsArray;
   } catch (error) {
@@ -2506,10 +2462,13 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
     ctx.stroke();
 
     // Prepare data points from real readings
-    // hourlyReadings already contains readings sorted by hour, up to current hour
+    // hourlyReadings now contains all readings from today, sorted by time
     const dataPoints = hourlyReadings.map(reading => ({
-      hour: reading.hour,
-      moisture: reading.moisture
+      hour: reading.hour, // This is now fractional hours since start of day
+      moisture: reading.moisture,
+      timestamp: reading.timestamp,
+      hourOfDay: reading.hourOfDay,
+      minutes: reading.minutes
     }));
 
     // If no data, show a message or empty graph
@@ -2521,17 +2480,23 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
       return;
     }
 
+    // Calculate time range for x-axis scaling
+    const minHour = dataPoints[0].hour;
+    const maxHour = dataPoints[dataPoints.length - 1].hour;
+    const timeRange = maxHour - minHour || 1; // Avoid division by zero
+    const numDataPoints = dataPoints.length;
+
     // Draw threshold lines if thresholds are available
     if (thresholds) {
       const minMoisture = thresholds.min_moisture;
       const maxMoisture = thresholds.max_moisture;
 
-      // Draw min threshold line (red, dashed)
+      // Draw min threshold line (red, dotted)
       if (minMoisture >= 0 && minMoisture <= 100) {
         const minY = height - padding.bottom - (minMoisture / 100) * graphHeight;
         ctx.strokeStyle = '#f44336'; // Red
         ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]); // Dashed line
+        ctx.setLineDash([3, 3]); // Dotted line
         ctx.beginPath();
         ctx.moveTo(padding.left, minY);
         ctx.lineTo(width - padding.right, minY);
@@ -2545,12 +2510,12 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
         ctx.fillText(`Min: ${minMoisture}%`, width - padding.right - 50, minY - 5);
       }
 
-      // Draw max threshold line (orange, dashed)
+      // Draw max threshold line (blue, dotted)
       if (maxMoisture >= 0 && maxMoisture <= 100) {
         const maxY = height - padding.bottom - (maxMoisture / 100) * graphHeight;
-        ctx.strokeStyle = '#ff9800'; // Orange
+        ctx.strokeStyle = '#2196f3'; // Blue
         ctx.lineWidth = 2;
-        ctx.setLineDash([5, 5]); // Dashed line
+        ctx.setLineDash([3, 3]); // Dotted line
         ctx.beginPath();
         ctx.moveTo(padding.left, maxY);
         ctx.lineTo(width - padding.right, maxY);
@@ -2558,20 +2523,18 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
         ctx.setLineDash([]); // Reset to solid
 
         // Label for max threshold
-        ctx.fillStyle = '#ff9800';
+        ctx.fillStyle = '#2196f3';
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
         ctx.fillText(`Max: ${maxMoisture}%`, width - padding.right - 50, maxY - 5);
       }
 
-      // Highlight area below minimum threshold (red background)
+      // Highlight area below minimum threshold (red tint/halo)
       if (minMoisture >= 0 && minMoisture <= 100) {
         const minY = height - padding.bottom - (minMoisture / 100) * graphHeight;
-        ctx.fillStyle = 'rgba(244, 67, 54, 0.1)'; // Light red
+        ctx.fillStyle = 'rgba(244, 67, 54, 0.08)'; // Light red tint
         ctx.fillRect(padding.left, minY, graphWidth, height - padding.bottom - minY);
       }
-
-      // Note: Removed blue highlight above maximum threshold as per user request
     }
 
     // Draw grid lines
@@ -2587,45 +2550,31 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
       ctx.stroke();
     }
 
-    // Vertical grid lines - show grid for each hour that has data
-    const numDataPoints = dataPoints.length;
-    if (numDataPoints > 1) {
-      for (let i = 0; i < numDataPoints; i++) {
-        const x = padding.left + (i / (numDataPoints - 1)) * graphWidth;
-        ctx.beginPath();
-        ctx.moveTo(x, padding.top);
-        ctx.lineTo(x, height - padding.bottom);
-        ctx.stroke();
+    // Vertical grid lines - show grid lines for each hour of the day
+    const startHour = Math.floor(minHour);
+    const endHour = Math.ceil(maxHour);
+    for (let hour = startHour; hour <= endHour; hour++) {
+      if (hour >= 0 && hour <= 24) {
+        // Calculate x position based on time
+        const hourX = padding.left + ((hour - minHour) / timeRange) * graphWidth;
+        if (hourX >= padding.left && hourX <= width - padding.right) {
+          ctx.beginPath();
+          ctx.moveTo(hourX, padding.top);
+          ctx.lineTo(hourX, height - padding.bottom);
+          ctx.stroke();
+        }
       }
-    } else if (numDataPoints === 1) {
-      // Single data point - draw a vertical line at that point
-      const x = padding.left + graphWidth / 2;
-      ctx.beginPath();
-      ctx.moveTo(x, padding.top);
-      ctx.lineTo(x, height - padding.bottom);
-      ctx.stroke();
     }
 
     // Draw moisture line (only if we have more than one point)
     if (numDataPoints > 1) {
-      // Determine line color based on thresholds if available
-      let lineColor = '#4caf50'; // Default green
-      if (thresholds && dataPoints.length > 0) {
-        const lastMoisture = dataPoints[dataPoints.length - 1].moisture;
-        if (lastMoisture < thresholds.min_moisture) {
-          lineColor = '#f44336'; // Red if below minimum
-        } else if (lastMoisture > thresholds.max_moisture) {
-          lineColor = '#2196f3'; // Blue if above maximum
-        } else if (lastMoisture < thresholds.min_moisture + (thresholds.max_moisture - thresholds.min_moisture) * 0.1) {
-          lineColor = '#ff9800'; // Orange if close to minimum
-        }
-      }
-
-      ctx.strokeStyle = lineColor;
+      // Use black color for the moisture line
+      ctx.strokeStyle = '#000000'; // Black
       ctx.lineWidth = 2;
       ctx.beginPath();
       dataPoints.forEach((point, index) => {
-        const x = padding.left + (index / (numDataPoints - 1)) * graphWidth;
+        // Calculate x position based on time (fractional hours since start of day)
+        const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
         // Moisture is already a percentage (0-100), clamp it to ensure it's within bounds
         const moisture = Math.max(0, Math.min(100, point.moisture));
         const y = height - padding.bottom - (moisture / 100) * graphHeight;
@@ -2638,30 +2587,15 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
       ctx.stroke();
     }
 
-    // Draw data points as circles with color coding
-    dataPoints.forEach((point, index) => {
-      let x;
-      if (numDataPoints === 1) {
-        x = padding.left + graphWidth / 2;
-      } else {
-        x = padding.left + (index / (numDataPoints - 1)) * graphWidth;
-      }
+    // Draw data points as circles (black)
+    dataPoints.forEach((point) => {
+      // Calculate x position based on time (fractional hours since start of day)
+      const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
       const moisture = Math.max(0, Math.min(100, point.moisture));
       const y = height - padding.bottom - (moisture / 100) * graphHeight;
       
-      // Color code based on thresholds
-      let pointColor = '#4caf50'; // Default green
-      if (thresholds) {
-        if (moisture < thresholds.min_moisture) {
-          pointColor = '#f44336'; // Red
-        } else if (moisture > thresholds.max_moisture) {
-          pointColor = '#2196f3'; // Blue
-        } else if (moisture < thresholds.min_moisture + (thresholds.max_moisture - thresholds.min_moisture) * 0.1) {
-          pointColor = '#ff9800'; // Orange
-        }
-      }
-
-      ctx.fillStyle = pointColor;
+      // Use black for all data points
+      ctx.fillStyle = '#000000'; // Black
       ctx.beginPath();
       ctx.arc(x, y, 3, 0, 2 * Math.PI);
       ctx.fill();
@@ -2672,15 +2606,26 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     
-    // X-axis labels (hours) - show hour labels for data points
-    dataPoints.forEach((point, index) => {
-      let x;
-      if (numDataPoints === 1) {
-        x = padding.left + graphWidth / 2;
-      } else {
-        x = padding.left + (index / (numDataPoints - 1)) * graphWidth;
+    // X-axis labels (hours) - show hour labels for each hour in the range
+    const startHourLabel = Math.floor(minHour);
+    const endHourLabel = Math.ceil(maxHour);
+    const hourLabels = [];
+    for (let hour = startHourLabel; hour <= endHourLabel && hour <= 24; hour++) {
+      if (hour >= 0) {
+        hourLabels.push(hour);
       }
-      ctx.fillText(point.hour.toString(), x, height - padding.bottom + 15);
+    }
+    
+    // Show labels for each hour, but limit to avoid overcrowding
+    // If we have many hours, show every other hour or every 3rd hour
+    const labelInterval = hourLabels.length > 12 ? 2 : (hourLabels.length > 6 ? 2 : 1);
+    hourLabels.forEach((hour, idx) => {
+      if (idx % labelInterval === 0 || idx === hourLabels.length - 1) {
+        const hourX = padding.left + ((hour - minHour) / timeRange) * graphWidth;
+        if (hourX >= padding.left && hourX <= width - padding.right) {
+          ctx.fillText(hour.toString(), hourX, height - padding.bottom + 15);
+        }
+      }
     });
 
     // Y-axis labels (moisture)
