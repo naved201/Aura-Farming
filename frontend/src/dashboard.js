@@ -231,7 +231,15 @@ function setupScheduleCategorization() {
         
         if (targetContent) {
           card.setAttribute('data-category', newCategory);
-          card.className = `schedule-card schedule-${newCategory} draggable`;
+          
+          // Update draggable state based on category
+          if (newCategory === 'upcoming') {
+            card.className = `schedule-card schedule-${newCategory}`;
+            card.setAttribute('draggable', 'false');
+          } else {
+            card.className = `schedule-card schedule-${newCategory} draggable`;
+            card.setAttribute('draggable', 'true');
+          }
           
           // Update status badge
           const badge = card.querySelector('.schedule-status-badge');
@@ -244,27 +252,50 @@ function setupScheduleCategorization() {
             badge.textContent = badges[newCategory] || 'Upcoming';
           }
           
-          // Handle checkbox/drag-handle swap based on new category
+          // Handle checkbox/drag-handle/no-drag-indicator swap based on new category
           const cardHeader = card.querySelector('.schedule-card-header');
           if (cardHeader) {
             const existingCheckbox = cardHeader.querySelector('.delayed-checkbox-label');
             const existingDragHandle = cardHeader.querySelector('.schedule-drag-handle');
+            const existingNoDrag = cardHeader.querySelector('.schedule-no-drag-indicator');
             
-            if (newCategory === 'delayed' && !existingCheckbox && existingDragHandle) {
+            if (newCategory === 'delayed') {
               // Moving TO delayed - add checkbox
-              const zone = card.getAttribute('data-zone');
-              const scheduledTime = card.getAttribute('data-scheduled-time');
-              const checkboxHTML = `
-                <label class="delayed-checkbox-label">
-                  <input type="checkbox" class="delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
-                  <span class="delayed-checkbox-custom"></span>
-                </label>
-              `;
-              existingDragHandle.outerHTML = checkboxHTML;
-            } else if (newCategory !== 'delayed' && existingCheckbox && !existingDragHandle) {
-              // Moving FROM delayed - add drag handle
-              const dragHandleHTML = '<div class="schedule-drag-handle">⋮⋮</div>';
-              existingCheckbox.outerHTML = dragHandleHTML;
+              if (!existingCheckbox) {
+                const zone = card.getAttribute('data-zone');
+                const scheduledTime = card.getAttribute('data-scheduled-time');
+                const checkboxHTML = `
+                  <label class="delayed-checkbox-label">
+                    <input type="checkbox" class="delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+                    <span class="delayed-checkbox-custom"></span>
+                  </label>
+                `;
+                if (existingDragHandle) {
+                  existingDragHandle.outerHTML = checkboxHTML;
+                } else if (existingNoDrag) {
+                  existingNoDrag.outerHTML = checkboxHTML;
+                }
+              }
+            } else if (newCategory === 'imminent') {
+              // Moving TO imminent - add drag handle
+              if (!existingDragHandle) {
+                const dragHandleHTML = '<div class="schedule-drag-handle">⋮⋮</div>';
+                if (existingCheckbox) {
+                  existingCheckbox.outerHTML = dragHandleHTML;
+                } else if (existingNoDrag) {
+                  existingNoDrag.outerHTML = dragHandleHTML;
+                }
+              }
+            } else if (newCategory === 'upcoming') {
+              // Moving TO upcoming - add no-drag indicator
+              if (!existingNoDrag) {
+                const noDragHTML = '<div class="schedule-no-drag-indicator">📅</div>';
+                if (existingCheckbox) {
+                  existingCheckbox.outerHTML = noDragHTML;
+                } else if (existingDragHandle) {
+                  existingDragHandle.outerHTML = noDragHTML;
+                }
+              }
             }
           }
           
@@ -308,9 +339,9 @@ function setupDragAndDrop() {
   let draggedCard = null;
   let draggedFromCategory = null;
 
-  // Make all schedule cards draggable
+  // Make draggable schedule cards (not upcoming) draggable
   function initializeDragCards() {
-    const cards = columnsWrapper.querySelectorAll('.schedule-card');
+    const cards = columnsWrapper.querySelectorAll('.schedule-card.draggable');
     cards.forEach(card => {
       card.addEventListener('dragstart', handleDragStart);
       card.addEventListener('dragend', handleDragEnd);
@@ -375,7 +406,7 @@ function setupDragAndDrop() {
 
   function handleDrop(e) {
     if (e.stopPropagation) {
-    e.stopPropagation();
+      e.stopPropagation();
     }
 
     this.classList.remove('drag-over');
@@ -384,6 +415,11 @@ function setupDragAndDrop() {
 
     const newCategory = this.getAttribute('data-drop-zone');
     const oldCategory = draggedCard.getAttribute('data-category');
+
+    // Don't allow dropping into upcoming column
+    if (newCategory === 'upcoming') {
+      return;
+    }
 
     // Don't do anything if dropped in the same category
     if (newCategory === oldCategory) {
@@ -402,19 +438,27 @@ function setupDragAndDrop() {
     // Update column counts
     updateColumnCounts(columnsWrapper);
 
-    // Re-initialize drag handlers for the moved card
-    draggedCard.addEventListener('dragstart', handleDragStart);
-    draggedCard.addEventListener('dragend', handleDragEnd);
+    // Re-initialize drag handlers for the moved card (if still draggable)
+    if (newCategory !== 'upcoming') {
+      draggedCard.addEventListener('dragstart', handleDragStart);
+      draggedCard.addEventListener('dragend', handleDragEnd);
+    }
 
     return false;
   }
 
   function updateCardCategory(card, category) {
     // Remove old category classes
-    card.classList.remove('schedule-upcoming', 'schedule-imminent', 'schedule-delayed');
+    card.classList.remove('schedule-upcoming', 'schedule-imminent', 'schedule-delayed', 'draggable');
     
-    // Add new category class
+    // Add new category class and draggable state
     card.classList.add(`schedule-${category}`);
+    if (category !== 'upcoming') {
+      card.classList.add('draggable');
+      card.setAttribute('draggable', 'true');
+    } else {
+      card.setAttribute('draggable', 'false');
+    }
     
     // Update status badge
     const badge = card.querySelector('.schedule-status-badge');
@@ -427,17 +471,17 @@ function setupDragAndDrop() {
       badge.textContent = badges[category] || 'Upcoming';
     }
     
-    // Handle checkbox/drag-handle based on category
+    // Handle checkbox/drag-handle/no-drag-indicator based on category
     const cardHeader = card.querySelector('.schedule-card-header');
     if (!cardHeader) return;
     
     const existingCheckbox = cardHeader.querySelector('.delayed-checkbox-label');
     const existingDragHandle = cardHeader.querySelector('.schedule-drag-handle');
-    const zoneName = card.querySelector('.schedule-zone-name');
+    const existingNoDrag = cardHeader.querySelector('.schedule-no-drag-indicator');
     
     if (category === 'delayed') {
       // Add checkbox if it doesn't exist
-      if (!existingCheckbox && existingDragHandle) {
+      if (!existingCheckbox) {
         const zone = card.getAttribute('data-zone');
         const scheduledTime = card.getAttribute('data-scheduled-time');
         const checkboxHTML = `
@@ -446,13 +490,31 @@ function setupDragAndDrop() {
             <span class="delayed-checkbox-custom"></span>
           </label>
         `;
-        existingDragHandle.outerHTML = checkboxHTML;
+        if (existingDragHandle) {
+          existingDragHandle.outerHTML = checkboxHTML;
+        } else if (existingNoDrag) {
+          existingNoDrag.outerHTML = checkboxHTML;
+        }
       }
-    } else {
+    } else if (category === 'imminent') {
       // Add drag handle if it doesn't exist
-      if (existingCheckbox && !existingDragHandle) {
+      if (!existingDragHandle) {
         const dragHandleHTML = '<div class="schedule-drag-handle">⋮⋮</div>';
-        existingCheckbox.outerHTML = dragHandleHTML;
+        if (existingCheckbox) {
+          existingCheckbox.outerHTML = dragHandleHTML;
+        } else if (existingNoDrag) {
+          existingNoDrag.outerHTML = dragHandleHTML;
+        }
+      }
+    } else if (category === 'upcoming') {
+      // Add no-drag indicator if it doesn't exist
+      if (!existingNoDrag) {
+        const noDragHTML = '<div class="schedule-no-drag-indicator">📅</div>';
+        if (existingCheckbox) {
+          existingCheckbox.outerHTML = noDragHTML;
+        } else if (existingDragHandle) {
+          existingDragHandle.outerHTML = noDragHTML;
+        }
       }
     }
   }
@@ -1276,7 +1338,15 @@ function setupZoneScheduleCategorization(columnsWrapper, zoneNumber) {
         
         if (targetContent) {
           card.setAttribute('data-category', newCategory);
-          card.className = `zone-schedule-card zone-schedule-${newCategory} draggable`;
+          
+          // Update draggable state
+          if (newCategory === 'upcoming') {
+            card.className = `zone-schedule-card zone-schedule-${newCategory}`;
+            card.setAttribute('draggable', 'false');
+          } else {
+            card.className = `zone-schedule-card zone-schedule-${newCategory} draggable`;
+            card.setAttribute('draggable', 'true');
+          }
           
           const badge = card.querySelector('.zone-schedule-status-badge');
           if (badge) {
@@ -1288,25 +1358,47 @@ function setupZoneScheduleCategorization(columnsWrapper, zoneNumber) {
             badge.textContent = badges[newCategory] || 'Upcoming';
           }
           
-          // Handle checkbox/drag-handle swap
+          // Handle checkbox/drag-handle/no-drag-indicator swap
           const cardHeader = card.querySelector('.zone-schedule-card-header');
           if (cardHeader) {
             const existingCheckbox = cardHeader.querySelector('.zone-delayed-checkbox-label');
             const existingDragHandle = cardHeader.querySelector('.zone-schedule-drag-handle');
+            const existingNoDrag = cardHeader.querySelector('.schedule-no-drag-indicator');
             
-            if (newCategory === 'delayed' && !existingCheckbox && existingDragHandle) {
-              const zone = card.getAttribute('data-zone');
-              const scheduledTime = card.getAttribute('data-scheduled-time');
-              const checkboxHTML = `
-                <label class="zone-delayed-checkbox-label">
-                  <input type="checkbox" class="zone-delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
-                  <span class="zone-delayed-checkbox-custom"></span>
-                </label>
-              `;
-              existingDragHandle.outerHTML = checkboxHTML;
-            } else if (newCategory !== 'delayed' && existingCheckbox && !existingDragHandle) {
-              const dragHandleHTML = '<div class="zone-schedule-drag-handle">⋮⋮</div>';
-              existingCheckbox.outerHTML = dragHandleHTML;
+            if (newCategory === 'delayed') {
+              if (!existingCheckbox) {
+                const zone = card.getAttribute('data-zone');
+                const scheduledTime = card.getAttribute('data-scheduled-time');
+                const checkboxHTML = `
+                  <label class="zone-delayed-checkbox-label">
+                    <input type="checkbox" class="zone-delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+                    <span class="zone-delayed-checkbox-custom"></span>
+                  </label>
+                `;
+                if (existingDragHandle) {
+                  existingDragHandle.outerHTML = checkboxHTML;
+                } else if (existingNoDrag) {
+                  existingNoDrag.outerHTML = checkboxHTML;
+                }
+              }
+            } else if (newCategory === 'imminent') {
+              if (!existingDragHandle) {
+                const dragHandleHTML = '<div class="zone-schedule-drag-handle">⋮⋮</div>';
+                if (existingCheckbox) {
+                  existingCheckbox.outerHTML = dragHandleHTML;
+                } else if (existingNoDrag) {
+                  existingNoDrag.outerHTML = dragHandleHTML;
+                }
+              }
+            } else if (newCategory === 'upcoming') {
+              if (!existingNoDrag) {
+                const noDragHTML = '<div class="schedule-no-drag-indicator">📅</div>';
+                if (existingCheckbox) {
+                  existingCheckbox.outerHTML = noDragHTML;
+                } else if (existingDragHandle) {
+                  existingDragHandle.outerHTML = noDragHTML;
+                }
+              }
             }
           }
           
@@ -1341,7 +1433,7 @@ function setupZoneScheduleDragAndDrop(columnsWrapper, zoneNumber) {
   let draggedCard = null;
   
   function initializeDragCards() {
-    const cards = columnsWrapper.querySelectorAll('.zone-schedule-card');
+    const cards = columnsWrapper.querySelectorAll('.zone-schedule-card.draggable');
     cards.forEach(card => {
       card.addEventListener('dragstart', handleDragStart);
       card.addEventListener('dragend', handleDragEnd);
@@ -1400,6 +1492,11 @@ function setupZoneScheduleDragAndDrop(columnsWrapper, zoneNumber) {
     const newCategory = this.getAttribute('data-drop-zone');
     const oldCategory = draggedCard.getAttribute('data-category');
     
+    // Don't allow dropping into upcoming column
+    if (newCategory === 'upcoming') {
+      return;
+    }
+    
     if (newCategory === oldCategory) return;
     
     draggedCard.setAttribute('data-category', newCategory);
@@ -1407,15 +1504,26 @@ function setupZoneScheduleDragAndDrop(columnsWrapper, zoneNumber) {
     this.appendChild(draggedCard);
     updateZoneColumnCounts(columnsWrapper);
     
-    draggedCard.addEventListener('dragstart', handleDragStart);
-    draggedCard.addEventListener('dragend', handleDragEnd);
+    // Re-initialize drag handlers for the moved card (if still draggable)
+    if (newCategory !== 'upcoming') {
+      draggedCard.addEventListener('dragstart', handleDragStart);
+      draggedCard.addEventListener('dragend', handleDragEnd);
+    }
     
     return false;
   }
   
   function updateZoneCardCategory(card, category) {
-    card.classList.remove('zone-schedule-upcoming', 'zone-schedule-imminent', 'zone-schedule-delayed');
+    card.classList.remove('zone-schedule-upcoming', 'zone-schedule-imminent', 'zone-schedule-delayed', 'draggable');
     card.classList.add(`zone-schedule-${category}`);
+    
+    // Update draggable state
+    if (category !== 'upcoming') {
+      card.classList.add('draggable');
+      card.setAttribute('draggable', 'true');
+    } else {
+      card.setAttribute('draggable', 'false');
+    }
     
     const badge = card.querySelector('.zone-schedule-status-badge');
     if (badge) {
@@ -1432,20 +1540,45 @@ function setupZoneScheduleDragAndDrop(columnsWrapper, zoneNumber) {
     
     const existingCheckbox = cardHeader.querySelector('.zone-delayed-checkbox-label');
     const existingDragHandle = cardHeader.querySelector('.zone-schedule-drag-handle');
+    const existingNoDrag = cardHeader.querySelector('.schedule-no-drag-indicator');
     
-    if (category === 'delayed' && !existingCheckbox && existingDragHandle) {
-      const zone = card.getAttribute('data-zone');
-      const scheduledTime = card.getAttribute('data-scheduled-time');
-      const checkboxHTML = `
-        <label class="zone-delayed-checkbox-label">
-          <input type="checkbox" class="zone-delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
-          <span class="zone-delayed-checkbox-custom"></span>
-        </label>
-      `;
-      existingDragHandle.outerHTML = checkboxHTML;
-    } else if (category !== 'delayed' && existingCheckbox && !existingDragHandle) {
-      const dragHandleHTML = '<div class="zone-schedule-drag-handle">⋮⋮</div>';
-      existingCheckbox.outerHTML = dragHandleHTML;
+    if (category === 'delayed') {
+      // Add checkbox
+      if (!existingCheckbox) {
+        const zone = card.getAttribute('data-zone');
+        const scheduledTime = card.getAttribute('data-scheduled-time');
+        const checkboxHTML = `
+          <label class="zone-delayed-checkbox-label">
+            <input type="checkbox" class="zone-delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+            <span class="zone-delayed-checkbox-custom"></span>
+          </label>
+        `;
+        if (existingDragHandle) {
+          existingDragHandle.outerHTML = checkboxHTML;
+        } else if (existingNoDrag) {
+          existingNoDrag.outerHTML = checkboxHTML;
+        }
+      }
+    } else if (category === 'imminent') {
+      // Add drag handle
+      if (!existingDragHandle) {
+        const dragHandleHTML = '<div class="zone-schedule-drag-handle">⋮⋮</div>';
+        if (existingCheckbox) {
+          existingCheckbox.outerHTML = dragHandleHTML;
+        } else if (existingNoDrag) {
+          existingNoDrag.outerHTML = dragHandleHTML;
+        }
+      }
+    } else if (category === 'upcoming') {
+      // Add no-drag indicator
+      if (!existingNoDrag) {
+        const noDragHTML = '<div class="schedule-no-drag-indicator">📅</div>';
+        if (existingCheckbox) {
+          existingCheckbox.outerHTML = noDragHTML;
+        } else if (existingDragHandle) {
+          existingDragHandle.outerHTML = noDragHTML;
+        }
+      }
     }
   }
   

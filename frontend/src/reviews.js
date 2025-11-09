@@ -41,12 +41,12 @@ const individualZoneSchedules = {
 
 // Generate schedule card HTML for a single schedule
 function generateScheduleCardHTML(schedule, index, category) {
-  const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit',
-    hour12: true 
-  });
-  
+    const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
   const timeUntilSeconds = Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000);
   const timeUntilMinutes = Math.floor(timeUntilSeconds / 60);
   
@@ -64,16 +64,16 @@ function generateScheduleCardHTML(schedule, index, category) {
     statusBadge = 'Upcoming';
     statusClass = 'schedule-upcoming';
   }
-  
-  return `
-    <div class="schedule-card ${statusClass} draggable" draggable="true" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
+    
+    return `
+    <div class="schedule-card ${statusClass} ${category !== 'upcoming' ? 'draggable' : ''}" draggable="${category !== 'upcoming'}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
       <div class="schedule-card-header">
         ${category === 'delayed' ? `
         <label class="delayed-checkbox-label">
           <input type="checkbox" class="delayed-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
           <span class="delayed-checkbox-custom"></span>
         </label>
-        ` : '<div class="schedule-drag-handle">⋮⋮</div>'}
+        ` : category === 'imminent' ? '<div class="schedule-drag-handle">⋮⋮</div>' : '<div class="schedule-no-drag-indicator">📅</div>'}
         <span class="schedule-zone-name">${schedule.zone}</span>
         <span class="schedule-status-badge">${statusBadge}</span>
       </div>
@@ -330,14 +330,14 @@ function generateZoneScheduleCardHTML(schedule, index, category) {
   }
   
   return `
-    <div class="zone-schedule-card ${statusClass} draggable" draggable="true" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
+    <div class="zone-schedule-card ${statusClass} ${category !== 'upcoming' ? 'draggable' : ''}" draggable="${category !== 'upcoming'}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
       <div class="zone-schedule-card-header">
         ${category === 'delayed' ? `
         <label class="zone-delayed-checkbox-label">
           <input type="checkbox" class="zone-delayed-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
           <span class="zone-delayed-checkbox-custom"></span>
         </label>
-        ` : '<div class="zone-schedule-drag-handle">⋮⋮</div>'}
+        ` : category === 'imminent' ? '<div class="zone-schedule-drag-handle">⋮⋮</div>' : '<div class="schedule-no-drag-indicator">📅</div>'}
         <span class="zone-schedule-time-label">${timeStr}</span>
         <span class="zone-schedule-status-badge">${statusBadge}</span>
       </div>
@@ -468,7 +468,7 @@ export function createReviewsComponent() {
                   <div class="zone-schedule-section" data-zone="1">
                     <div class="zone-schedule-section-inner">
                       <div class="zone-individual-schedule" id="zone-1-schedule-columns">
-                        ${generateZoneScheduleCards('Zone 1')}
+                              ${generateZoneScheduleCards('Zone 1')}
                       </div>
                     </div>
                   </div>
@@ -559,7 +559,7 @@ export function createReviewsComponent() {
                   <div class="zone-schedule-section" data-zone="2">
                     <div class="zone-schedule-section-inner">
                       <div class="zone-individual-schedule" id="zone-2-schedule-columns">
-                        ${generateZoneScheduleCards('Zone 2')}
+                              ${generateZoneScheduleCards('Zone 2')}
                       </div>
                     </div>
                   </div>
@@ -642,7 +642,7 @@ export function createReviewsComponent() {
                   <div class="zone-schedule-section" data-zone="3">
                     <div class="zone-schedule-section-inner">
                       <div class="zone-individual-schedule" id="zone-3-schedule-columns">
-                        ${generateZoneScheduleCards('Zone 3')}
+                              ${generateZoneScheduleCards('Zone 3')}
                       </div>
                     </div>
                   </div>
@@ -733,7 +733,7 @@ export function createReviewsComponent() {
                   <div class="zone-schedule-section" data-zone="4">
                     <div class="zone-schedule-section-inner">
                       <div class="zone-individual-schedule" id="zone-4-schedule-columns">
-                        ${generateZoneScheduleCards('Zone 4')}
+                              ${generateZoneScheduleCards('Zone 4')}
                       </div>
                     </div>
                   </div>
@@ -770,7 +770,7 @@ export function createReviewsComponent() {
               </button>
             </div>
             <div class="watering-schedule-columns-wrapper" id="watering-schedule-columns">
-              ${generateScheduleCards()}
+                  ${generateScheduleCards()}
             </div>
           </div>
 

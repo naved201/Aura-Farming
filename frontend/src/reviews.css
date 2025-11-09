@@ -2299,6 +2299,23 @@
   border-color: rgba(244, 67, 54, 0.5);
 }
 
+/* Upcoming zone column cannot be a drop target */
+.zone-schedule-column[data-category="upcoming"] .zone-schedule-column-content.drag-over {
+  background: rgba(158, 158, 158, 0.05);
+  border: 2px dashed rgba(158, 158, 158, 0.3);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Zone schedule cards that are not draggable */
+.zone-schedule-card:not(.draggable) {
+  cursor: default;
+}
+
+.zone-schedule-card:not(.draggable):hover {
+  transform: none;
+}
+
 .zone-schedule-carousel-container {
   display: flex;
   align-items: flex-start;
@@ -3331,6 +3348,24 @@
   color: rgba(29, 27, 32, 0.6);
 }
 
+/* No drag indicator for upcoming cards */
+.schedule-no-drag-indicator {
+  color: rgba(102, 187, 106, 0.6);
+  font-size: 16px;
+  line-height: 1;
+  user-select: none;
+  padding: 4px;
+  cursor: default;
+}
+
+.schedule-card:not(.draggable) {
+  cursor: default;
+}
+
+.schedule-card:not(.draggable):hover {
+  transform: none;
+}
+
 /* Dragging state */
 .schedule-card.dragging {
   opacity: 0.5;
@@ -3356,6 +3391,14 @@
 .schedule-column[data-category="delayed"] .schedule-column-content.drag-over {
   background: rgba(244, 67, 54, 0.1);
   border-color: rgba(244, 67, 54, 0.5);
+}
+
+/* Upcoming column cannot be a drop target */
+.schedule-column[data-category="upcoming"] .schedule-column-content.drag-over {
+  background: rgba(158, 158, 158, 0.05);
+  border: 2px dashed rgba(158, 158, 158, 0.3);
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 
