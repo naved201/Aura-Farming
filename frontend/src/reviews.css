@@ -2017,6 +2017,288 @@
   width: 100%;
 }
 
+/* Zone Schedule Columns (Individual Zone) - Same layout as general schedule but scaled for zone dropdown */
+.zone-schedule-columns-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.zone-schedule-column {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 2px solid rgba(102, 187, 106, 0.2);
+  overflow: hidden;
+  min-height: 150px;
+  max-height: 400px;
+  box-sizing: border-box;
+}
+
+.zone-schedule-column[data-category="imminent"] {
+  border-color: rgba(255, 152, 0, 0.4);
+  background: rgba(255, 152, 0, 0.05);
+}
+
+.zone-schedule-column[data-category="delayed"] {
+  border-color: rgba(244, 67, 54, 0.4);
+  background: rgba(244, 67, 54, 0.05);
+}
+
+.zone-schedule-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(102, 187, 106, 0.15), rgba(76, 175, 80, 0.1));
+  border-bottom: 2px solid rgba(102, 187, 106, 0.3);
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.zone-schedule-column[data-category="imminent"] .zone-schedule-column-header {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 193, 7, 0.15));
+  border-bottom-color: rgba(255, 152, 0, 0.4);
+}
+
+.zone-schedule-column[data-category="delayed"] .zone-schedule-column-header {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(229, 57, 53, 0.15));
+  border-bottom-color: rgba(244, 67, 54, 0.4);
+}
+
+.zone-schedule-column-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zone-schedule-column-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--schemes-on-surface);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.zone-schedule-column-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: rgba(102, 187, 106, 0.3);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--schemes-on-surface);
+}
+
+.zone-schedule-column[data-category="imminent"] .zone-schedule-column-count {
+  background: rgba(255, 152, 0, 0.4);
+}
+
+.zone-schedule-column[data-category="delayed"] .zone-schedule-column-count {
+  background: rgba(244, 67, 54, 0.4);
+}
+
+.zone-schedule-column-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zone-schedule-column-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.zone-schedule-column-content::-webkit-scrollbar-track {
+  background: rgba(102, 187, 106, 0.1);
+  border-radius: 2px;
+}
+
+.zone-schedule-column-content::-webkit-scrollbar-thumb {
+  background: rgba(102, 187, 106, 0.4);
+  border-radius: 2px;
+}
+
+.zone-schedule-column-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 187, 106, 0.6);
+}
+
+.zone-schedule-empty-message {
+  text-align: center;
+  padding: 16px;
+  color: rgba(29, 27, 32, 0.5);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Zone delayed actions */
+.zone-delayed-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.zone-delayed-select-all-btn,
+.zone-delayed-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  background: rgba(244, 67, 54, 0.1);
+  color: rgba(29, 27, 32, 0.8);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zone-delayed-select-all-btn {
+  border-color: rgba(102, 187, 106, 0.4);
+  background: rgba(102, 187, 106, 0.1);
+}
+
+.zone-delayed-select-all-btn:hover {
+  background: rgba(102, 187, 106, 0.2);
+  border-color: rgba(102, 187, 106, 0.6);
+  transform: translateY(-1px);
+}
+
+.zone-delayed-delete-btn:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.6);
+  transform: translateY(-1px);
+}
+
+.zone-delayed-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.zone-delayed-select-all-btn svg,
+.zone-delayed-delete-btn svg {
+  flex-shrink: 0;
+}
+
+/* Zone delayed checkbox styles */
+.zone-delayed-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.zone-delayed-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.zone-delayed-checkbox-custom {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(244, 67, 54, 0.6);
+  border-radius: 3px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.zone-delayed-checkbox:checked + .zone-delayed-checkbox-custom {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.9), rgba(229, 57, 53, 0.9));
+  border-color: rgba(244, 67, 54, 0.8);
+}
+
+.zone-delayed-checkbox:checked + .zone-delayed-checkbox-custom::after {
+  content: '✓';
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.zone-delayed-checkbox-label:hover .zone-delayed-checkbox-custom {
+  border-color: rgba(244, 67, 54, 0.8);
+  transform: scale(1.05);
+}
+
+/* Zone schedule drag handle */
+.zone-schedule-drag-handle {
+  cursor: grab;
+  color: rgba(29, 27, 32, 0.4);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+  padding: 2px;
+  transition: color 0.2s ease;
+}
+
+.zone-schedule-drag-handle:active {
+  cursor: grabbing;
+}
+
+.zone-schedule-card:hover .zone-schedule-drag-handle {
+  color: rgba(29, 27, 32, 0.6);
+}
+
+/* Zone schedule card states for categories */
+.zone-schedule-card.zone-schedule-imminent {
+  border-color: rgba(255, 152, 0, 0.5);
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 193, 7, 0.05));
+}
+
+.zone-schedule-card.zone-schedule-delayed {
+  border-color: rgba(244, 67, 54, 0.5);
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(229, 57, 53, 0.05));
+}
+
+.zone-schedule-card.zone-schedule-upcoming {
+  border-color: rgba(102, 187, 106, 0.4);
+}
+
+/* Zone schedule dragging states */
+.zone-schedule-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+  cursor: grabbing;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.zone-schedule-column-content.drag-over {
+  background: rgba(102, 187, 106, 0.1);
+  border: 2px dashed rgba(102, 187, 106, 0.5);
+  border-radius: 6px;
+  min-height: 80px;
+}
+
+.zone-schedule-column[data-category="imminent"] .zone-schedule-column-content.drag-over {
+  background: rgba(255, 152, 0, 0.1);
+  border-color: rgba(255, 152, 0, 0.5);
+}
+
+.zone-schedule-column[data-category="delayed"] .zone-schedule-column-content.drag-over {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: rgba(244, 67, 54, 0.5);
+}
+
 .zone-schedule-carousel-container {
   display: flex;
   align-items: flex-start;

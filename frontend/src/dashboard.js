@@ -1119,123 +1119,40 @@ function setupZoneScheduleToggles() {
           });
         }
         
-        // Setup carousel for this zone's schedule
-        const carouselId = `zone-${zoneNumber}-schedule-carousel`;
-        setupZoneScheduleCarousel(carouselId, zoneNumber);
+        // Setup columns for this zone's schedule
+        const columnsId = `zone-${zoneNumber}-schedule-columns`;
+        setupZoneScheduleColumns(columnsId, zoneNumber);
       }
     });
   });
 }
 
-function setupZoneScheduleCarousel(carouselId, zoneNumber) {
-  const carousel = document.getElementById(carouselId);
-  const leftArrow = document.querySelector(`.zone-schedule-carousel-arrow-left[data-zone="${zoneNumber}"]`);
-  const rightArrow = document.querySelector(`.zone-schedule-carousel-arrow-right[data-zone="${zoneNumber}"]`);
+// Setup zone schedule columns (individual zone dropdown with column layout)
+function setupZoneScheduleColumns(columnsId, zoneNumber) {
+  const columnsWrapper = document.getElementById(columnsId);
   
-  if (!carousel || !leftArrow || !rightArrow) {
-    setTimeout(() => setupZoneScheduleCarousel(carouselId, zoneNumber), 100);
+  if (!columnsWrapper) {
+    setTimeout(() => setupZoneScheduleColumns(columnsId, zoneNumber), 100);
     return;
   }
 
-  // Sort cards by scheduled time
-  sortZoneScheduleCards(carousel);
-
-  let currentIndex = 0;
-  let cards = carousel.querySelectorAll('.zone-schedule-card');
-  const totalCards = cards.length;
-  const cardsPerView = 2; // Show 2 cards at a time in the dropdown (compact cards)
-  
-  if (totalCards === 0) {
-    setTimeout(() => setupZoneScheduleCarousel(carouselId, zoneNumber), 100);
-    return;
-  }
-
-  const maxIndex = totalCards > cardsPerView ? totalCards - cardsPerView : 0;
-  
-  // Setup countdown timers for this zone's schedule
-  setupZoneScheduleCountdowns(carousel, zoneNumber);
-
-  function updateCarousel() {
-    cards = carousel.querySelectorAll('.zone-schedule-card');
-    if (cards.length === 0) {
-      setTimeout(updateCarousel, 100);
-      return;
+  // Setup countdown timers for all columns in this zone
+  const allColumns = columnsWrapper.querySelectorAll('.zone-schedule-column');
+  allColumns.forEach(column => {
+    const columnContent = column.querySelector('.zone-schedule-column-content');
+    if (columnContent) {
+      setupZoneScheduleCountdowns(columnContent, zoneNumber);
     }
-    
-    const wrapper = carousel.parentElement;
-    if (!wrapper) {
-      setTimeout(updateCarousel, 100);
-      return;
-    }
-    
-    const wrapperWidth = wrapper.offsetWidth;
-    if (wrapperWidth === 0) {
-      setTimeout(updateCarousel, 100);
-      return;
-    }
-    
-    const carouselStyle = window.getComputedStyle(carousel);
-    const gapValue = carouselStyle.gap || '16px';
-    const gap = parseFloat(gapValue) || 16;
-    
-    const cardWidth = (wrapperWidth - gap) / cardsPerView;
-    
-    cards.forEach((card) => {
-      card.style.width = cardWidth + 'px';
-      card.style.minWidth = cardWidth + 'px';
-      card.style.maxWidth = cardWidth + 'px';
-      card.style.flexBasis = cardWidth + 'px';
-    });
-    
-    const translateX = -currentIndex * (cardWidth + gap);
-    carousel.style.transform = `translateX(${translateX}px)`;
-    carousel.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-  }
-
-  function next() {
-    if (currentIndex >= maxIndex) {
-      currentIndex = 0;
-    } else {
-      currentIndex++;
-    }
-    updateCarousel();
-  }
-
-  function prev() {
-    if (currentIndex <= 0) {
-      currentIndex = maxIndex;
-    } else {
-      currentIndex--;
-    }
-    updateCarousel();
-  }
-
-  rightArrow.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    next();
   });
   
-  leftArrow.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    prev();
-  });
-
-  requestAnimationFrame(() => {
-    currentIndex = 0;
-    updateCarousel();
-  });
+  // Setup drag and drop for this zone's schedule
+  setupZoneScheduleDragAndDrop(columnsWrapper, zoneNumber);
   
-  let resizeTimeout;
-  const resizeHandler = () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      updateCarousel();
-    }, 200);
-  };
+  // Setup delayed cards functionality for this zone
+  setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber);
   
-  window.addEventListener('resize', resizeHandler);
+  // Setup automatic categorization for this zone
+  setupZoneScheduleCategorization(columnsWrapper, zoneNumber);
 }
 
 function sortZoneScheduleCards(carousel) {
@@ -1253,11 +1170,12 @@ function sortZoneScheduleCards(carousel) {
   });
 }
 
-function setupZoneScheduleCountdowns(carousel, zoneNumber) {
+// Setup countdowns for zone schedule cards in column content
+function setupZoneScheduleCountdowns(columnContent, zoneNumber) {
   const updateInterval = 100;
   
   function updateCountdowns() {
-    const cards = Array.from(carousel.querySelectorAll('.zone-schedule-card'));
+    const cards = Array.from(columnContent.querySelectorAll('.zone-schedule-card'));
     const isHalted = document.body.classList.contains('watering-halted');
     
     cards.forEach(card => {
@@ -1321,10 +1239,316 @@ function setupZoneScheduleCountdowns(carousel, zoneNumber) {
   updateCountdowns();
   const intervalId = setInterval(updateCountdowns, updateInterval);
   
-  if (carousel.dataset.intervalId) {
-    clearInterval(parseInt(carousel.dataset.intervalId));
+  if (columnContent.dataset.intervalId) {
+    clearInterval(parseInt(columnContent.dataset.intervalId));
   }
-  carousel.dataset.intervalId = intervalId.toString();
+  columnContent.dataset.intervalId = intervalId.toString();
+}
+
+// Setup automatic categorization for zone schedules
+function setupZoneScheduleCategorization(columnsWrapper, zoneNumber) {
+  setInterval(() => {
+    const allCards = columnsWrapper.querySelectorAll('.zone-schedule-card');
+    const now = Date.now();
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    
+    allCards.forEach(card => {
+      const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
+      if (!scheduledTime) return;
+      
+      const timeUntil = scheduledTime - now;
+      const timeUntilMinutes = timeUntil / (60 * 1000);
+      const currentCategory = card.getAttribute('data-category');
+      
+      let newCategory = currentCategory;
+      
+      if (timeUntil < 0) {
+        newCategory = 'delayed';
+      } else if (timeUntilMinutes <= 5) {
+        newCategory = 'imminent';
+      } else {
+        newCategory = 'upcoming';
+      }
+      
+      if (newCategory !== currentCategory) {
+        const targetColumn = columnsWrapper.querySelector(`.zone-schedule-column[data-category="${newCategory}"]`);
+        const targetContent = targetColumn?.querySelector('.zone-schedule-column-content');
+        
+        if (targetContent) {
+          card.setAttribute('data-category', newCategory);
+          card.className = `zone-schedule-card zone-schedule-${newCategory} draggable`;
+          
+          const badge = card.querySelector('.zone-schedule-status-badge');
+          if (badge) {
+            const badges = {
+              'upcoming': 'Upcoming',
+              'imminent': 'Urgent',
+              'delayed': 'Overdue'
+            };
+            badge.textContent = badges[newCategory] || 'Upcoming';
+          }
+          
+          // Handle checkbox/drag-handle swap
+          const cardHeader = card.querySelector('.zone-schedule-card-header');
+          if (cardHeader) {
+            const existingCheckbox = cardHeader.querySelector('.zone-delayed-checkbox-label');
+            const existingDragHandle = cardHeader.querySelector('.zone-schedule-drag-handle');
+            
+            if (newCategory === 'delayed' && !existingCheckbox && existingDragHandle) {
+              const zone = card.getAttribute('data-zone');
+              const scheduledTime = card.getAttribute('data-scheduled-time');
+              const checkboxHTML = `
+                <label class="zone-delayed-checkbox-label">
+                  <input type="checkbox" class="zone-delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+                  <span class="zone-delayed-checkbox-custom"></span>
+                </label>
+              `;
+              existingDragHandle.outerHTML = checkboxHTML;
+            } else if (newCategory !== 'delayed' && existingCheckbox && !existingDragHandle) {
+              const dragHandleHTML = '<div class="zone-schedule-drag-handle">⋮⋮</div>';
+              existingCheckbox.outerHTML = dragHandleHTML;
+            }
+          }
+          
+          targetContent.appendChild(card);
+          updateZoneColumnCounts(columnsWrapper);
+        }
+      }
+    });
+  }, 10000);
+}
+
+// Update zone column counts
+function updateZoneColumnCounts(columnsWrapper) {
+  const columns = columnsWrapper.querySelectorAll('.zone-schedule-column');
+  columns.forEach(column => {
+    const countEl = column.querySelector('.zone-schedule-column-count');
+    const cards = column.querySelectorAll('.zone-schedule-card');
+    if (countEl) {
+      countEl.textContent = cards.length;
+    }
+    
+    const columnContent = column.querySelector('.zone-schedule-column-content');
+    const emptyMessage = columnContent?.querySelector('.zone-schedule-empty-message');
+    if (emptyMessage) {
+      emptyMessage.style.display = cards.length === 0 ? 'block' : 'none';
+    }
+  });
+}
+
+// Setup drag and drop for zone schedule cards
+function setupZoneScheduleDragAndDrop(columnsWrapper, zoneNumber) {
+  let draggedCard = null;
+  
+  function initializeDragCards() {
+    const cards = columnsWrapper.querySelectorAll('.zone-schedule-card');
+    cards.forEach(card => {
+      card.addEventListener('dragstart', handleDragStart);
+      card.addEventListener('dragend', handleDragEnd);
+    });
+  }
+  
+  function initializeDropZones() {
+    const dropZones = columnsWrapper.querySelectorAll('.zone-schedule-column-content');
+    dropZones.forEach(dropZone => {
+      dropZone.addEventListener('dragover', handleDragOver);
+      dropZone.addEventListener('drop', handleDrop);
+      dropZone.addEventListener('dragenter', handleDragEnter);
+      dropZone.addEventListener('dragleave', handleDragLeave);
+    });
+  }
+  
+  function handleDragStart(e) {
+    draggedCard = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  
+  function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    const dropZones = columnsWrapper.querySelectorAll('.zone-schedule-column-content');
+    dropZones.forEach(zone => zone.classList.remove('drag-over'));
+    draggedCard = null;
+  }
+  
+  function handleDragOver(e) {
+    if (e.preventDefault) {
+      e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+  }
+  
+  function handleDragEnter(e) {
+    this.classList.add('drag-over');
+  }
+  
+  function handleDragLeave(e) {
+    if (!this.contains(e.relatedTarget)) {
+      this.classList.remove('drag-over');
+    }
+  }
+  
+  function handleDrop(e) {
+    if (e.stopPropagation) {
+      e.stopPropagation();
+    }
+    
+    this.classList.remove('drag-over');
+    if (!draggedCard) return;
+    
+    const newCategory = this.getAttribute('data-drop-zone');
+    const oldCategory = draggedCard.getAttribute('data-category');
+    
+    if (newCategory === oldCategory) return;
+    
+    draggedCard.setAttribute('data-category', newCategory);
+    updateZoneCardCategory(draggedCard, newCategory);
+    this.appendChild(draggedCard);
+    updateZoneColumnCounts(columnsWrapper);
+    
+    draggedCard.addEventListener('dragstart', handleDragStart);
+    draggedCard.addEventListener('dragend', handleDragEnd);
+    
+    return false;
+  }
+  
+  function updateZoneCardCategory(card, category) {
+    card.classList.remove('zone-schedule-upcoming', 'zone-schedule-imminent', 'zone-schedule-delayed');
+    card.classList.add(`zone-schedule-${category}`);
+    
+    const badge = card.querySelector('.zone-schedule-status-badge');
+    if (badge) {
+      const badges = {
+        'upcoming': 'Upcoming',
+        'imminent': 'Urgent',
+        'delayed': 'Overdue'
+      };
+      badge.textContent = badges[category] || 'Upcoming';
+    }
+    
+    const cardHeader = card.querySelector('.zone-schedule-card-header');
+    if (!cardHeader) return;
+    
+    const existingCheckbox = cardHeader.querySelector('.zone-delayed-checkbox-label');
+    const existingDragHandle = cardHeader.querySelector('.zone-schedule-drag-handle');
+    
+    if (category === 'delayed' && !existingCheckbox && existingDragHandle) {
+      const zone = card.getAttribute('data-zone');
+      const scheduledTime = card.getAttribute('data-scheduled-time');
+      const checkboxHTML = `
+        <label class="zone-delayed-checkbox-label">
+          <input type="checkbox" class="zone-delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+          <span class="zone-delayed-checkbox-custom"></span>
+        </label>
+      `;
+      existingDragHandle.outerHTML = checkboxHTML;
+    } else if (category !== 'delayed' && existingCheckbox && !existingDragHandle) {
+      const dragHandleHTML = '<div class="zone-schedule-drag-handle">⋮⋮</div>';
+      existingCheckbox.outerHTML = dragHandleHTML;
+    }
+  }
+  
+  initializeDragCards();
+  initializeDropZones();
+  
+  const observer = new MutationObserver(() => {
+    initializeDragCards();
+  });
+  
+  observer.observe(columnsWrapper, {
+    childList: true,
+    subtree: true
+  });
+}
+
+// Setup delayed cards functionality for individual zone schedules
+function setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber) {
+  const delayedColumn = columnsWrapper.querySelector('.zone-schedule-column[data-category="delayed"]');
+  if (!delayedColumn) {
+    setTimeout(() => setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber), 100);
+    return;
+  }
+  
+  const selectAllBtn = delayedColumn.querySelector('.zone-delayed-select-all-btn');
+  const deleteBtn = delayedColumn.querySelector('.zone-delayed-delete-btn');
+  
+  if (!selectAllBtn || !deleteBtn) {
+    setTimeout(() => setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber), 100);
+    return;
+  }
+  
+  function updateDeleteButtonState() {
+    const checkboxes = delayedColumn.querySelectorAll('.zone-delayed-checkbox');
+    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    deleteBtn.disabled = checkedCount === 0;
+    
+    if (checkedCount > 0) {
+      deleteBtn.querySelector('span').textContent = `Delete (${checkedCount})`;
+    } else {
+      deleteBtn.querySelector('span').textContent = 'Delete';
+    }
+  }
+  
+  delayedColumn.addEventListener('change', (e) => {
+    if (e.target.classList.contains('zone-delayed-checkbox')) {
+      updateDeleteButtonState();
+    }
+  });
+  
+  selectAllBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const checkboxes = delayedColumn.querySelectorAll('.zone-delayed-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach(cb => {
+      cb.checked = !allChecked;
+    });
+    
+    updateDeleteButtonState();
+    
+    if (allChecked) {
+      selectAllBtn.querySelector('span').textContent = 'Select All';
+    } else {
+      selectAllBtn.querySelector('span').textContent = 'Deselect All';
+    }
+  });
+  
+  deleteBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    
+    const checkboxes = delayedColumn.querySelectorAll('.zone-delayed-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    const confirmMessage = `Delete ${checkboxes.length} delayed schedule${checkboxes.length > 1 ? 's' : ''} from ${zoneNumber}?`;
+    if (!confirm(confirmMessage)) return;
+    
+    checkboxes.forEach(checkbox => {
+      const card = checkbox.closest('.zone-schedule-card');
+      if (card) {
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.8)';
+        setTimeout(() => {
+          card.remove();
+          updateZoneColumnCounts(columnsWrapper);
+          updateDeleteButtonState();
+        }, 300);
+      }
+    });
+  });
+  
+  updateDeleteButtonState();
+  
+  const observer = new MutationObserver(() => {
+    updateDeleteButtonState();
+  });
+  
+  const delayedContent = delayedColumn.querySelector('.zone-schedule-column-content');
+  if (delayedContent) {
+    observer.observe(delayedContent, {
+      childList: true
+    });
+  }
 }
 
 function setupZoneMoistureGraph(canvas, zoneNumber) {
