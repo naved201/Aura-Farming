@@ -1,6 +1,7 @@
 import { supabase } from './config.js';
 import { getCurrentUser } from './auth.js';
 import { analyzeZoneMoistureStatus, analyzeMoistureTrend, generateWateringSuggestions, fetchThresholds, predictThresholdCrossing } from './moistureAnalysis.js';
+import { setupWaterSavedCard } from './waterSaved.js';
 
 let scheduleCategorizationIntervalId = null;
 const removedScheduleKeys = new Set();
@@ -41,6 +42,9 @@ export function setupDashboard() {
     
     // Load and display watering alerts/suggestions
     loadWateringAlerts();
+    
+    // Setup water saved card
+    setupWaterSavedCard();
     
     // Setup update buttons
     const updateButtons = document.querySelectorAll('.update-button');
