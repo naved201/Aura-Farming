@@ -1,6 +1,6 @@
 import { supabase } from './config.js';
 import { getCurrentUser } from './auth.js';
-import { analyzeZoneMoistureStatus, analyzeMoistureTrend, generateWateringSuggestions, fetchThresholds, predictThresholdCrossing } from './moistureAnalysis.js';
+import { analyzeZoneMoistureStatus, analyzeMoistureTrend, generateWateringSuggestions, fetchThresholds, predictThresholdCrossing, calculateSoilHealthRisk } from './moistureAnalysis.js';
 
 let scheduleCategorizationIntervalId = null;
 const removedScheduleKeys = new Set();
@@ -62,6 +62,9 @@ export function setupDashboard() {
 
     // Setup zone graph toggles
     setupZoneGraphToggles();
+    
+    // Setup zone information toggles
+    setupZoneInformationToggles();
     
     // Setup zone schedule toggles
     setupZoneScheduleToggles();
@@ -155,9 +158,8 @@ function generateZoneHTML(zone, index) {
               <p class="data-value">--</p>
             </div>
           </div>
-          <div class="data-panel">
+          <div class="data-panel soil-health-indicator-panel" id="zone-${zoneId}-soil-health-indicator">
             <h4 class="data-panel-title">Soil health</h4>
-            <p class="data-panel-subtitle">(pertaining how long its wet for)</p>
             <div class="data-panel-content">
               <p class="data-value">--</p>
             </div>
@@ -166,6 +168,12 @@ function generateZoneHTML(zone, index) {
         <button class="zone-graph-toggle" data-zone-id="${zoneId}" aria-label="Toggle ${zoneName} Graph">
           <span class="zone-graph-toggle-text">View Graph</span>
           <svg class="zone-graph-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+        <button class="zone-information-toggle" data-zone-id="${zoneId}" aria-label="Toggle ${zoneName} Information">
+          <span class="zone-information-toggle-text">Zone Information</span>
+          <svg class="zone-information-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M6 9l6 6 6-6"/>
           </svg>
         </button>
@@ -191,6 +199,25 @@ function generateZoneHTML(zone, index) {
               <span class="legend-text">Soil Moisture (%)</span>
             </div>
             <!-- Threshold lines will be added dynamically -->
+          </div>
+        </div>
+      </div>
+      <div class="zone-information-section" data-zone-id="${zoneId}">
+        <div class="zone-information-section-inner">
+          <div class="zone-information-header">
+            <h4 class="zone-information-title">Soil Health</h4>
+            <p class="zone-information-subtitle">Risk assessment based on duration above max moisture threshold</p>
+          </div>
+          <div class="zone-soil-health-details" id="zone-${zoneId}-soil-health-details">
+            <p class="soil-health-explanation">--</p>
+          </div>
+          <div class="zone-threshold-crossings" id="zone-${zoneId}-threshold-crossings" style="display: none;">
+            <div class="threshold-crossings-header">
+              <h5 class="threshold-crossings-title">Threshold Crossings</h5>
+            </div>
+            <div class="threshold-crossings-content" id="zone-${zoneId}-threshold-crossings-content">
+              <!-- Will be populated dynamically -->
+            </div>
           </div>
         </div>
       </div>
@@ -267,6 +294,13 @@ async function loadZoneTelemetryData() {
               updateZoneStatusIndicator(zoneWrapper, status);
             })
             .catch(err => console.error('Error analyzing zone status:', err));
+          
+          // Calculate and update soil health risk (uses graph data from yesterday)
+          calculateSoilHealthRisk(zone.id, zone.crop_type)
+            .then(riskData => {
+              updateSoilHealthDisplay(zoneWrapper, riskData);
+            })
+            .catch(err => console.error('Error calculating soil health risk:', err));
         }
       } else {
         console.log(`Could not find zone element for zone ${zone.name} (${zone.id})`);
@@ -351,6 +385,166 @@ function updateZoneStatusIndicator(zoneWrapper, status) {
     zoneContainer.classList.add('zone-status-saturated');
   }
   // For no_data, unknown, error - no special styling (default card color)
+}
+
+/**
+ * Update soil health display based on risk calculation
+ * Updates both the indicator cube in the main card and the detailed explanation in Zone Information
+ */
+function updateSoilHealthDisplay(zoneWrapper, riskData) {
+  if (!zoneWrapper || !riskData) return;
+
+  const zoneId = zoneWrapper.getAttribute('data-zone-id');
+  
+  // Update the indicator cube in the main zone card
+  const soilHealthIndicator = document.getElementById(`zone-${zoneId}-soil-health-indicator`);
+  if (soilHealthIndicator) {
+    // Remove all risk classes
+    soilHealthIndicator.classList.remove(
+      'soil-health-none',
+      'soil-health-low',
+      'soil-health-moderate',
+      'soil-health-high',
+      'soil-health-unknown',
+      'soil-health-error',
+      'soil-health-no-data'
+    );
+
+    // Set the text and add appropriate class for styling
+    const valueElement = soilHealthIndicator.querySelector('.data-value');
+    if (valueElement) {
+      let displayText = '--';
+      if (riskData.risk === 'none') {
+        displayText = 'Healthy';
+      } else if (riskData.risk === 'low') {
+        displayText = 'Low Risk';
+      } else if (riskData.risk === 'moderate') {
+        displayText = 'Moderate Risk';
+      } else if (riskData.risk === 'high') {
+        displayText = 'High Risk';
+      } else if (riskData.risk === 'unknown') {
+        displayText = 'Unknown';
+      } else if (riskData.risk === 'no_data') {
+        displayText = 'No Data';
+      } else if (riskData.risk === 'error') {
+        displayText = 'Error';
+      } else {
+        displayText = riskData.message || '--';
+      }
+      valueElement.textContent = displayText;
+    }
+
+    // Add the appropriate risk class for styling (green/yellow/red)
+    const riskClass = `soil-health-${riskData.risk}`;
+    soilHealthIndicator.classList.add(riskClass);
+  }
+
+  // Update the detailed explanation in the Zone Information section
+  const soilHealthDetails = document.getElementById(`zone-${zoneId}-soil-health-details`);
+  if (soilHealthDetails) {
+    const explanationElement = soilHealthDetails.querySelector('.soil-health-explanation');
+    if (explanationElement) {
+      // Remove all risk classes to reset styling
+      explanationElement.classList.remove(
+        'soil-health-explanation-none',
+        'soil-health-explanation-low',
+        'soil-health-explanation-moderate',
+        'soil-health-explanation-high',
+        'soil-health-explanation-unknown',
+        'soil-health-explanation-error',
+        'soil-health-explanation-no-data'
+      );
+
+      let explanationText = '';
+      if (riskData.risk === 'none') {
+        explanationText = 'Soil health is ideal.';
+        explanationElement.classList.add('soil-health-explanation-none');
+      } else if (riskData.risk === 'low') {
+        explanationText = `Soil moisture has been above the maximum threshold for ${riskData.hoursAboveMax.toFixed(1)} hours.`;
+        explanationElement.classList.add('soil-health-explanation-low');
+      } else if (riskData.risk === 'moderate') {
+        explanationText = `Soil moisture has been above the maximum threshold for ${riskData.hoursAboveMax.toFixed(1)} hours.`;
+        explanationElement.classList.add('soil-health-explanation-moderate');
+      } else if (riskData.risk === 'high') {
+        explanationText = `Soil moisture has been above the maximum threshold for ${riskData.hoursAboveMax.toFixed(1)} hours. Urgent action required!`;
+        explanationElement.classList.add('soil-health-explanation-high');
+      } else if (riskData.risk === 'unknown') {
+        explanationText = 'Unable to assess soil health risk. Threshold data may be missing for this crop type.';
+        explanationElement.classList.add('soil-health-explanation-unknown');
+      } else if (riskData.risk === 'no_data') {
+        explanationText = 'Insufficient data to assess soil health risk. No telemetry data available for this zone.';
+        explanationElement.classList.add('soil-health-explanation-no-data');
+      } else if (riskData.risk === 'error') {
+        // Check if it's a threshold crossing error or a calculation error
+        if (riskData.hasThresholdCrossingError) {
+          explanationText = riskData.message || 'Error: Multiple threshold crossings detected.';
+          explanationElement.classList.add('soil-health-explanation-error');
+        } else {
+          explanationText = 'Error calculating soil health risk. Please try again later.';
+          explanationElement.classList.add('soil-health-explanation-error');
+        }
+      } else {
+        explanationText = riskData.message || 'Unable to determine soil health status.';
+      }
+      explanationElement.textContent = explanationText;
+    }
+
+    // Update threshold crossings section
+    const thresholdCrossingsSection = document.getElementById(`zone-${zoneId}-threshold-crossings`);
+    const thresholdCrossingsContent = document.getElementById(`zone-${zoneId}-threshold-crossings-content`);
+    
+    if (thresholdCrossingsSection && thresholdCrossingsContent) {
+      // Show section if there are any crossings or if there's an error
+      if (riskData.hasThresholdCrossingError || 
+          (riskData.crossingsAboveMax > 0 || riskData.crossingsBelowMin > 0)) {
+        thresholdCrossingsSection.style.display = 'block';
+        
+        let crossingsHTML = '';
+        
+        // Show crossings above max
+        if (riskData.crossingsAboveMax > 0) {
+          crossingsHTML += `
+            <div class="threshold-crossing-item ${riskData.crossingsAboveMax >= 3 ? 'threshold-crossing-error' : ''}">
+              <div class="threshold-crossing-icon">⚠️</div>
+              <div class="threshold-crossing-details">
+                <div class="threshold-crossing-count">Exceeded maximum threshold (${riskData.maxMoisture}%) ${riskData.crossingsAboveMax} time${riskData.crossingsAboveMax !== 1 ? 's' : ''}</div>
+                ${riskData.crossingsAboveMax >= 3 ? '<div class="threshold-crossing-suggestion">💡 Suggestion: Reduce watering to prevent over-saturation</div>' : ''}
+              </div>
+            </div>
+          `;
+        }
+        
+        // Show crossings below min
+        if (riskData.crossingsBelowMin > 0) {
+          crossingsHTML += `
+            <div class="threshold-crossing-item ${riskData.crossingsBelowMin >= 3 ? 'threshold-crossing-error' : ''}">
+              <div class="threshold-crossing-icon">⚠️</div>
+              <div class="threshold-crossing-details">
+                <div class="threshold-crossing-count">Fell below minimum threshold (${riskData.minMoisture}%) ${riskData.crossingsBelowMin} time${riskData.crossingsBelowMin !== 1 ? 's' : ''}</div>
+                ${riskData.crossingsBelowMin >= 3 ? '<div class="threshold-crossing-suggestion">💡 Suggestion: Add more water to maintain adequate moisture levels</div>' : ''}
+              </div>
+            </div>
+          `;
+        }
+        
+        // If no crossings, show healthy message
+        if (riskData.crossingsAboveMax === 0 && riskData.crossingsBelowMin === 0) {
+          crossingsHTML = `
+            <div class="threshold-crossing-item threshold-crossing-healthy">
+              <div class="threshold-crossing-icon">✅</div>
+              <div class="threshold-crossing-details">
+                <div class="threshold-crossing-count">No threshold crossings detected. Soil moisture levels are stable.</div>
+              </div>
+            </div>
+          `;
+        }
+        
+        thresholdCrossingsContent.innerHTML = crossingsHTML;
+      } else {
+        thresholdCrossingsSection.style.display = 'none';
+      }
+    }
+  }
 }
 
 /**
@@ -1738,6 +1932,77 @@ function setupZoneGraphToggles() {
   });
 }
 
+function setupZoneInformationToggles() {
+  const toggleButtons = document.querySelectorAll('.zone-information-toggle');
+  
+  toggleButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Get zone ID from button's data-zone-id attribute
+      const zoneId = button.getAttribute('data-zone-id');
+      const informationSection = document.querySelector(`.zone-information-section[data-zone-id="${zoneId}"]`);
+      
+      if (!informationSection) return;
+      
+      const isExpanded = informationSection.classList.contains('expanded');
+      
+      if (isExpanded) {
+        // Collapse - smooth glide up
+        const inner = informationSection.querySelector('.zone-information-section-inner');
+        if (inner) {
+          // Get current height (use offsetHeight if style is auto)
+          const currentHeight = informationSection.style.height === 'auto' 
+            ? informationSection.offsetHeight 
+            : parseInt(informationSection.style.height) || informationSection.scrollHeight;
+          informationSection.style.height = currentHeight + 'px';
+          informationSection.style.overflow = 'hidden';
+          // Force reflow
+          informationSection.offsetHeight;
+          requestAnimationFrame(() => {
+            informationSection.style.height = '0px';
+          });
+        }
+        informationSection.classList.remove('expanded');
+        button.classList.remove('active');
+        button.querySelector('.zone-information-toggle-text').textContent = 'Zone Information';
+      } else {
+        // Expand - smooth glide down
+        informationSection.classList.add('expanded');
+        button.classList.add('active');
+        button.querySelector('.zone-information-toggle-text').textContent = 'Hide Zone Information';
+        
+        // Measure and set height for smooth transition
+        const inner = informationSection.querySelector('.zone-information-section-inner');
+        if (inner) {
+          // Temporarily set to auto to measure actual content height
+          informationSection.style.height = 'auto';
+          informationSection.style.overflow = 'visible';
+          const targetHeight = inner.scrollHeight + 24; // Add padding for border
+          informationSection.style.height = '0px';
+          informationSection.style.overflow = 'hidden';
+          
+          // Force reflow
+          informationSection.offsetHeight;
+          
+          // Animate to target height
+          requestAnimationFrame(() => {
+            informationSection.style.transition = 'height 0.3s ease-out';
+            informationSection.style.height = targetHeight + 'px';
+            
+            // After animation completes, set to auto for responsive behavior
+            setTimeout(() => {
+              informationSection.style.height = 'auto';
+              informationSection.style.overflow = 'visible';
+            }, 300);
+          });
+        }
+      }
+    });
+  });
+}
+
 function setupZoneScheduleToggles() {
   const toggleButtons = document.querySelectorAll('.zone-schedule-toggle');
   
@@ -1746,8 +2011,8 @@ function setupZoneScheduleToggles() {
       e.preventDefault();
       e.stopPropagation();
       
-      const zoneNumber = button.getAttribute('data-zone');
-      const scheduleSection = document.querySelector(`.zone-schedule-section[data-zone="${zoneNumber}"]`);
+      const zoneId = button.getAttribute('data-zone-id');
+      const scheduleSection = document.querySelector(`.zone-schedule-section[data-zone-id="${zoneId}"]`);
       
       if (!scheduleSection) return;
       
@@ -1797,8 +2062,8 @@ function setupZoneScheduleToggles() {
         }
         
         // Setup columns for this zone's schedule
-        const columnsId = `zone-${zoneNumber}-schedule-columns`;
-        setupZoneScheduleColumns(columnsId, zoneNumber);
+        const columnsId = `zone-${zoneId}-schedule-columns`;
+        setupZoneScheduleColumns(columnsId, zoneId);
       }
     });
   });

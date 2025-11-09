@@ -2235,6 +2235,87 @@
   transform: rotate(180deg);
 }
 
+/* Zone Information Toggle Button */
+.zone-information-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 16px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, rgba(102, 187, 106, 0.1), rgba(76, 175, 80, 0.05));
+  border: 2px solid rgba(102, 187, 106, 0.3);
+  border-radius: 10px;
+  color: var(--schemes-on-surface);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.zone-information-toggle:hover {
+  background: linear-gradient(135deg, rgba(102, 187, 106, 0.2), rgba(76, 175, 80, 0.1));
+  border-color: rgba(102, 187, 106, 0.5);
+  transform: translateY(-1px);
+}
+
+.zone-information-toggle.active {
+  background: linear-gradient(135deg, rgba(102, 187, 106, 0.25), rgba(76, 175, 80, 0.15));
+  border-color: rgba(102, 187, 106, 0.6);
+}
+
+.zone-information-toggle-text {
+  flex: 1;
+  text-align: left;
+}
+
+.zone-information-toggle-icon {
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.zone-information-toggle.active .zone-information-toggle-icon {
+  transform: rotate(180deg);
+}
+
+/* Zone Information Section (Collapsible) */
+.zone-information-section {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  height: 0;
+  opacity: 0;
+  transform: translateY(-30px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-top: 12px;
+  background: var(--gradient-card);
+  border-radius: 10px;
+  border: 2px solid rgba(102, 187, 106, 0.3);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
+
+.zone-information-section.expanded {
+  opacity: 1;
+  transform: translateY(0);
+  height: auto;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.zone-information-section-inner {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+  max-height: none;
+}
+
 /* Zone Schedule Section (Individual Zone Dropdown) */
 .zone-schedule-section {
   overflow: hidden;
@@ -2258,6 +2339,9 @@
   background: rgba(255, 255, 255, 0.5);
   border-radius: 12px;
   border: 1px solid rgba(102, 187, 106, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .zone-individual-schedule {
@@ -2950,6 +3034,224 @@
   border-radius: 4px;
   margin-bottom: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Soil Health Indicator Panel - Risk Level Styling */
+.soil-health-indicator-panel.soil-health-none {
+  background: rgba(76, 175, 80, 0.15);
+  border-color: rgba(76, 175, 80, 0.4);
+}
+
+.soil-health-indicator-panel.soil-health-none .data-value {
+  color: #2e7d32;
+}
+
+.soil-health-indicator-panel.soil-health-low {
+  background: rgba(255, 235, 59, 0.15);
+  border-color: rgba(255, 235, 59, 0.4);
+}
+
+.soil-health-indicator-panel.soil-health-low .data-value {
+  color: #f57f17;
+}
+
+.soil-health-indicator-panel.soil-health-moderate {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: rgba(255, 193, 7, 0.5);
+}
+
+.soil-health-indicator-panel.soil-health-moderate .data-value {
+  color: #f57c00;
+}
+
+.soil-health-indicator-panel.soil-health-high {
+  background: rgba(244, 67, 54, 0.15);
+  border-color: rgba(244, 67, 54, 0.4);
+}
+
+.soil-health-indicator-panel.soil-health-high .data-value {
+  color: #c62828;
+}
+
+.soil-health-indicator-panel.soil-health-unknown,
+.soil-health-indicator-panel.soil-health-error,
+.soil-health-indicator-panel.soil-health-no-data {
+  background: rgba(158, 158, 158, 0.1);
+  border-color: rgba(158, 158, 158, 0.3);
+}
+
+.soil-health-indicator-panel.soil-health-unknown .data-value,
+.soil-health-indicator-panel.soil-health-error .data-value,
+.soil-health-indicator-panel.soil-health-no-data .data-value {
+  color: #616161;
+}
+
+/* Error state for threshold crossings */
+.soil-health-indicator-panel.soil-health-error {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.5);
+}
+
+.soil-health-indicator-panel.soil-health-error .data-value {
+  color: #c62828;
+  font-weight: 700;
+}
+
+/* Zone Information Section Content (inside the collapsible section) */
+.zone-information-header {
+  margin-bottom: 12px;
+}
+
+.zone-information-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--schemes-on-surface);
+  margin: 0 0 4px 0;
+}
+
+.zone-information-subtitle {
+  font-size: 12px;
+  color: rgba(29, 27, 32, 0.6);
+  margin: 0;
+}
+
+.zone-soil-health-details {
+  margin-top: 12px;
+}
+
+.soil-health-explanation {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--schemes-on-surface);
+  margin: 0;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  border-left: 4px solid var(--eco-primary);
+  font-weight: 500;
+}
+
+/* Soil Health Explanation Colors */
+.soil-health-explanation-none {
+  color: #2e7d32;
+  background: rgba(76, 175, 80, 0.1);
+  border-left-color: #4caf50;
+}
+
+.soil-health-explanation-low {
+  color: #f57f17;
+  background: rgba(255, 235, 59, 0.1);
+  border-left-color: #ffeb3b;
+}
+
+.soil-health-explanation-moderate {
+  color: #f57c00;
+  background: rgba(255, 193, 7, 0.15);
+  border-left-color: #ffc107;
+  font-weight: 600;
+}
+
+.soil-health-explanation-high {
+  color: #c62828;
+  background: rgba(244, 67, 54, 0.1);
+  border-left-color: #f44336;
+  font-weight: 600;
+}
+
+.soil-health-explanation-unknown,
+.soil-health-explanation-error,
+.soil-health-explanation-no-data {
+  color: #616161;
+  background: rgba(158, 158, 158, 0.1);
+  border-left-color: #9e9e9e;
+}
+
+/* Threshold Crossings Section */
+.zone-threshold-crossings {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  border: 1px solid rgba(102, 187, 106, 0.2);
+}
+
+.threshold-crossings-header {
+  margin-bottom: 12px;
+}
+
+.threshold-crossings-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--schemes-on-surface);
+  margin: 0;
+}
+
+.threshold-crossings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.threshold-crossing-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  border-left: 4px solid var(--eco-primary);
+}
+
+.threshold-crossing-item.threshold-crossing-error {
+  background: rgba(244, 67, 54, 0.1);
+  border-left-color: #f44336;
+}
+
+.threshold-crossing-item.threshold-crossing-healthy {
+  background: rgba(76, 175, 80, 0.1);
+  border-left-color: #4caf50;
+}
+
+.threshold-crossing-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.threshold-crossing-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.threshold-crossing-count {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--schemes-on-surface);
+  line-height: 1.4;
+}
+
+.threshold-crossing-item.threshold-crossing-error .threshold-crossing-count {
+  color: #c62828;
+  font-weight: 600;
+}
+
+.threshold-crossing-item.threshold-crossing-healthy .threshold-crossing-count {
+  color: #2e7d32;
+}
+
+.threshold-crossing-suggestion {
+  font-size: 13px;
+  color: #616161;
+  font-style: italic;
+  padding-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.threshold-crossing-item.threshold-crossing-error .threshold-crossing-suggestion {
+  color: #d32f2f;
+  font-weight: 500;
+  font-style: normal;
 }
 
 /* Upcoming Activities Section */
