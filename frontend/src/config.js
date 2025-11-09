@@ -1,8 +1,8 @@
 // Supabase Configuration for Frontend
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://sxserhbozsmqbyninsbq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4c2VyaGJvenNtcWJ5bmluc2JxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2MjM0MDQsImV4cCI6MjA3ODE5OTQwNH0.WGZfUuLU5Ug0FH6RCwl2RE8F89FqP--qtBhe8ENZ8r0';
+const SUPABASE_URL = 'https://nuxiembmbwigfamnyplw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51eGllbWJtYndpZ2ZhbW55cGx3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2MjQzMTEsImV4cCI6MjA3ODIwMDMxMX0.JATKR6lo6jFKa4L8h16UN6L5c-tfAPL0CnIc-BmAnbM';
 
 // Create and export Supabase client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

@@ -2403,244 +2403,300 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
   }
 
   // Fetch real moisture data from Supabase
-  const hourlyReadings = await fetchHourlyMoistureData(zoneId);
+  let hourlyReadings;
+  try {
+    hourlyReadings = await fetchHourlyMoistureData(zoneId);
+    console.log(`Fetched ${hourlyReadings.length} moisture readings for zone ${zoneId}`);
+  } catch (error) {
+    console.error('Error fetching moisture data:', error);
+    hourlyReadings = [];
+  }
 
   // Wait for canvas to be properly sized and visible
   setTimeout(() => {
-    const ctx = canvas.getContext('2d');
-    const container = canvas.parentElement;
-    // Get the actual available width, accounting for padding
-    const graphSection = canvas.closest('.zone-graph-section');
-    if (!graphSection) return;
-    
-    // Get computed styles to account for padding
-    const sectionStyle = window.getComputedStyle(graphSection);
-    const sectionWidth = graphSection.offsetWidth;
-    const sectionPaddingLeft = parseFloat(sectionStyle.paddingLeft) || 12;
-    const sectionPaddingRight = parseFloat(sectionStyle.paddingRight) || 12;
-    const width = sectionWidth - sectionPaddingLeft - sectionPaddingRight;
-    const height = 150;
-    
-    // Ensure minimum width
-    if (width <= 0) {
-      console.warn('Graph section width is invalid, using fallback');
-      return;
-    }
-    
-    // Set canvas size (device pixel ratio for crisp rendering)
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
-    canvas.height = height * dpr;
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-    
-    // Scale context for high DPI displays
-    ctx.scale(dpr, dpr);
+    try {
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error('Could not get 2d context from canvas');
+        return;
+      }
+      
+      // Get the actual available width, accounting for padding
+      const graphSection = canvas.closest('.zone-graph-section');
+      if (!graphSection) {
+        console.warn('Graph section not found');
+        return;
+      }
+      
+      // Get computed styles to account for padding
+      const sectionStyle = window.getComputedStyle(graphSection);
+      const sectionWidth = graphSection.offsetWidth;
+      const sectionPaddingLeft = parseFloat(sectionStyle.paddingLeft) || 12;
+      const sectionPaddingRight = parseFloat(sectionStyle.paddingRight) || 12;
+      let canvasWidth = sectionWidth - sectionPaddingLeft - sectionPaddingRight;
+      const canvasHeight = 150;
+      
+      // Ensure minimum width
+      if (canvasWidth <= 0 || isNaN(canvasWidth)) {
+        console.warn('Graph section width is invalid:', canvasWidth);
+        // Use a fallback width
+        canvasWidth = 400;
+      }
+      
+      // Set canvas size (device pixel ratio for crisp rendering)
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvasWidth * dpr;
+      canvas.height = canvasHeight * dpr;
+      canvas.style.width = canvasWidth + 'px';
+      canvas.style.height = canvasHeight + 'px';
+      
+      // Scale context for high DPI displays
+      ctx.scale(dpr, dpr);
+      
+      // Use logical dimensions for drawing
+      const width = canvasWidth;
+      const height = canvasHeight;
 
-    // Set up graph area (use the CSS width, not the scaled width)
-    const padding = { top: 20, right: 20, bottom: 30, left: 40 };
-    const graphWidth = width - padding.left - padding.right;
-    const graphHeight = height - padding.top - padding.bottom;
+      // Clear canvas (after scaling, use the logical dimensions)
+      ctx.clearRect(0, 0, width, height);
 
-    // Clear canvas (after scaling, use the logical dimensions)
-    ctx.clearRect(0, 0, width, height);
+      // Set up graph area (use the CSS width, not the scaled width)
+      const padding = { top: 20, right: 20, bottom: 30, left: 40 };
+      const graphWidth = width - padding.left - padding.right;
+      const graphHeight = height - padding.top - padding.bottom;
 
-    // Draw axes
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 1;
-    
-    // Y-axis
-    ctx.beginPath();
-    ctx.moveTo(padding.left, padding.top);
-    ctx.lineTo(padding.left, height - padding.bottom);
-    ctx.stroke();
-
-    // X-axis
-    ctx.beginPath();
-    ctx.moveTo(padding.left, height - padding.bottom);
-    ctx.lineTo(width - padding.right, height - padding.bottom);
-    ctx.stroke();
-
-    // Prepare data points from real readings
-    // hourlyReadings now contains all readings from today, sorted by time
-    const dataPoints = hourlyReadings.map(reading => ({
-      hour: reading.hour, // This is now fractional hours since start of day
-      moisture: reading.moisture,
-      timestamp: reading.timestamp,
-      hourOfDay: reading.hourOfDay,
-      minutes: reading.minutes
-    }));
-
-    // If no data, show a message or empty graph
-    if (dataPoints.length === 0) {
-      ctx.fillStyle = '#999';
-      ctx.font = '14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('No data available', width / 2, height / 2);
-      return;
-    }
-
-    // Calculate time range for x-axis scaling
-    const minHour = dataPoints[0].hour;
-    const maxHour = dataPoints[dataPoints.length - 1].hour;
-    const timeRange = maxHour - minHour || 1; // Avoid division by zero
-    const numDataPoints = dataPoints.length;
-
-    // Draw threshold lines if thresholds are available
-    if (thresholds) {
-      const minMoisture = thresholds.min_moisture;
-      const maxMoisture = thresholds.max_moisture;
-
-      // Draw min threshold line (red, dotted)
-      if (minMoisture >= 0 && minMoisture <= 100) {
-        const minY = height - padding.bottom - (minMoisture / 100) * graphHeight;
-        ctx.strokeStyle = '#f44336'; // Red
-        ctx.lineWidth = 2;
-        ctx.setLineDash([3, 3]); // Dotted line
+      // Draw grid lines FIRST (so they appear behind everything)
+      ctx.strokeStyle = '#e0e0e0';
+      ctx.lineWidth = 0.5;
+      
+      // Horizontal grid lines
+      for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (graphHeight / 5) * i;
         ctx.beginPath();
-        ctx.moveTo(padding.left, minY);
-        ctx.lineTo(width - padding.right, minY);
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
         ctx.stroke();
-        ctx.setLineDash([]); // Reset to solid
-
-        // Label for min threshold
-        ctx.fillStyle = '#f44336';
-        ctx.font = '10px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`Min: ${minMoisture}%`, width - padding.right - 50, minY - 5);
       }
 
-      // Draw max threshold line (blue, dotted)
-      if (maxMoisture >= 0 && maxMoisture <= 100) {
-        const maxY = height - padding.bottom - (maxMoisture / 100) * graphHeight;
-        ctx.strokeStyle = '#2196f3'; // Blue
-        ctx.lineWidth = 2;
-        ctx.setLineDash([3, 3]); // Dotted line
-        ctx.beginPath();
-        ctx.moveTo(padding.left, maxY);
-        ctx.lineTo(width - padding.right, maxY);
-        ctx.stroke();
-        ctx.setLineDash([]); // Reset to solid
+      // Prepare data points from real readings
+      // hourlyReadings now contains all readings from today, sorted by time
+      const dataPoints = (hourlyReadings || []).map(reading => ({
+        hour: reading.hour, // This is now fractional hours since start of day
+        moisture: reading.moisture,
+        timestamp: reading.timestamp,
+        hourOfDay: reading.hourOfDay,
+        minutes: reading.minutes
+      }));
 
-        // Label for max threshold
-        ctx.fillStyle = '#2196f3';
-        ctx.font = '10px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText(`Max: ${maxMoisture}%`, width - padding.right - 50, maxY - 5);
+      // Calculate time range for x-axis scaling (use default if no data)
+      let minHour = 0;
+      let maxHour = 24;
+      let timeRange = 24;
+      let numDataPoints = dataPoints.length;
+
+      if (dataPoints.length > 0) {
+        minHour = dataPoints[0].hour;
+        maxHour = dataPoints[dataPoints.length - 1].hour;
+        timeRange = maxHour - minHour || 1; // Avoid division by zero
       }
 
-      // Highlight area below minimum threshold (red tint/halo)
-      if (minMoisture >= 0 && minMoisture <= 100) {
-        const minY = height - padding.bottom - (minMoisture / 100) * graphHeight;
-        ctx.fillStyle = 'rgba(244, 67, 54, 0.08)'; // Light red tint
-        ctx.fillRect(padding.left, minY, graphWidth, height - padding.bottom - minY);
-      }
-    }
-
-    // Draw grid lines
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 0.5;
-    
-    // Horizontal grid lines
-    for (let i = 0; i <= 5; i++) {
-      const y = padding.top + (graphHeight / 5) * i;
-      ctx.beginPath();
-      ctx.moveTo(padding.left, y);
-      ctx.lineTo(width - padding.right, y);
-      ctx.stroke();
-    }
-
-    // Vertical grid lines - show grid lines for each hour of the day
-    const startHour = Math.floor(minHour);
-    const endHour = Math.ceil(maxHour);
-    for (let hour = startHour; hour <= endHour; hour++) {
-      if (hour >= 0 && hour <= 24) {
-        // Calculate x position based on time
-        const hourX = padding.left + ((hour - minHour) / timeRange) * graphWidth;
-        if (hourX >= padding.left && hourX <= width - padding.right) {
-          ctx.beginPath();
-          ctx.moveTo(hourX, padding.top);
-          ctx.lineTo(hourX, height - padding.bottom);
-          ctx.stroke();
+      // Draw vertical grid lines - show grid lines for each hour of the day
+      const startHour = Math.floor(minHour);
+      const endHour = Math.ceil(maxHour);
+      for (let hour = startHour; hour <= endHour; hour++) {
+        if (hour >= 0 && hour <= 24) {
+          // Calculate x position based on time
+          const hourX = padding.left + ((hour - minHour) / timeRange) * graphWidth;
+          if (hourX >= padding.left && hourX <= width - padding.right) {
+            ctx.beginPath();
+            ctx.moveTo(hourX, padding.top);
+            ctx.lineTo(hourX, height - padding.bottom);
+            ctx.stroke();
+          }
         }
       }
-    }
 
-    // Draw moisture line (only if we have more than one point)
-    if (numDataPoints > 1) {
-      // Use black color for the moisture line
-      ctx.strokeStyle = '#000000'; // Black
-      ctx.lineWidth = 2;
+      
+      if (thresholds) {
+        const minMoisture = thresholds.min_moisture;
+        if (minMoisture >= 0 && minMoisture <= 100) {
+          const minY = height - padding.bottom - (minMoisture / 100) * graphHeight;
+          ctx.fillStyle = 'rgba(244, 67, 54, 0.08)'; // Light red tint
+          ctx.fillRect(padding.left, minY, graphWidth, height - padding.bottom - minY);
+        }
+      }
+
+      // Draw axes
+      ctx.strokeStyle = '#666';
+      ctx.lineWidth = 1;
+      
+      // Y-axis
       ctx.beginPath();
-      dataPoints.forEach((point, index) => {
-        // Calculate x position based on time (fractional hours since start of day)
+      ctx.moveTo(padding.left, padding.top);
+      ctx.lineTo(padding.left, height - padding.bottom);
+      ctx.stroke();
+
+      // X-axis
+      ctx.beginPath();
+      ctx.moveTo(padding.left, height - padding.bottom);
+      ctx.lineTo(width - padding.right, height - padding.bottom);
+      ctx.stroke();
+
+      // Draw threshold lines if thresholds are available (after fill, before data)
+      if (thresholds) {
+        const minMoisture = thresholds.min_moisture;
+        const maxMoisture = thresholds.max_moisture;
+
+        // Draw min threshold line (red, dotted)
+        if (minMoisture >= 0 && minMoisture <= 100) {
+          const minY = height - padding.bottom - (minMoisture / 100) * graphHeight;
+          ctx.strokeStyle = '#f44336'; // Red
+          ctx.lineWidth = 2;
+          ctx.setLineDash([3, 3]); // Dotted line
+          ctx.beginPath();
+          ctx.moveTo(padding.left, minY);
+          ctx.lineTo(width - padding.right, minY);
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset to solid
+
+          // Label for min threshold
+          ctx.fillStyle = '#f44336';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(`Min: ${minMoisture}%`, width - padding.right - 50, minY - 5);
+        }
+
+        // Draw max threshold line (blue, dotted)
+        if (maxMoisture >= 0 && maxMoisture <= 100) {
+          const maxY = height - padding.bottom - (maxMoisture / 100) * graphHeight;
+          ctx.strokeStyle = '#2196f3'; // Blue
+          ctx.lineWidth = 2;
+          ctx.setLineDash([3, 3]); // Dotted line
+          ctx.beginPath();
+          ctx.moveTo(padding.left, maxY);
+          ctx.lineTo(width - padding.right, maxY);
+          ctx.stroke();
+          ctx.setLineDash([]); // Reset to solid
+
+          // Label for max threshold
+          ctx.fillStyle = '#2196f3';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'left';
+          ctx.fillText(`Max: ${maxMoisture}%`, width - padding.right - 50, maxY - 5);
+        }
+      }
+
+      // If no data, show a message or empty graph
+      if (dataPoints.length === 0) {
+        ctx.fillStyle = '#999';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data available', width / 2, height / 2);
+        return;
+      }
+
+      // Draw moisture line (only if we have more than one point)
+      if (numDataPoints > 1) {
+        // Use black color for the moisture line
+        ctx.strokeStyle = '#000000'; // Black
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        dataPoints.forEach((point, index) => {
+          // Calculate x position based on time (fractional hours since start of day)
+          const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
+          // Moisture is already a percentage (0-100), clamp it to ensure it's within bounds
+          const moisture = Math.max(0, Math.min(100, point.moisture));
+          const y = height - padding.bottom - (moisture / 100) * graphHeight;
+          if (index === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        });
+        ctx.stroke();
+      } else if (numDataPoints === 1) {
+        // Draw a single point as a line
+        const point = dataPoints[0];
         const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
-        // Moisture is already a percentage (0-100), clamp it to ensure it's within bounds
         const moisture = Math.max(0, Math.min(100, point.moisture));
         const y = height - padding.bottom - (moisture / 100) * graphHeight;
-        if (index === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+      }
+
+      // Draw data points as circles (black)
+      dataPoints.forEach((point) => {
+        // Calculate x position based on time (fractional hours since start of day)
+        const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
+        const moisture = Math.max(0, Math.min(100, point.moisture));
+        const y = height - padding.bottom - (moisture / 100) * graphHeight;
+        
+        // Use black for all data points
+        ctx.fillStyle = '#000000'; // Black
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+
+      // Draw axis labels
+      ctx.fillStyle = '#666';
+      ctx.font = '11px sans-serif';
+      ctx.textAlign = 'center';
+      
+      // X-axis labels (hours) - show hour labels for each hour in the range
+      const startHourLabel = Math.floor(minHour);
+      const endHourLabel = Math.ceil(maxHour);
+      const hourLabels = [];
+      for (let hour = startHourLabel; hour <= endHourLabel && hour <= 24; hour++) {
+        if (hour >= 0) {
+          hourLabels.push(hour);
+        }
+      }
+      
+      // Show labels for each hour, but limit to avoid overcrowding
+      // If we have many hours, show every other hour or every 3rd hour
+      const labelInterval = hourLabels.length > 12 ? 2 : (hourLabels.length > 6 ? 2 : 1);
+      hourLabels.forEach((hour, idx) => {
+        if (idx % labelInterval === 0 || idx === hourLabels.length - 1) {
+          const hourX = padding.left + ((hour - minHour) / timeRange) * graphWidth;
+          if (hourX >= padding.left && hourX <= width - padding.right) {
+            ctx.fillText(hour.toString(), hourX, height - padding.bottom + 15);
+          }
         }
       });
-      ctx.stroke();
-    }
 
-    // Draw data points as circles (black)
-    dataPoints.forEach((point) => {
-      // Calculate x position based on time (fractional hours since start of day)
-      const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
-      const moisture = Math.max(0, Math.min(100, point.moisture));
-      const y = height - padding.bottom - (moisture / 100) * graphHeight;
-      
-      // Use black for all data points
-      ctx.fillStyle = '#000000'; // Black
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, 2 * Math.PI);
-      ctx.fill();
-    });
-
-    // Draw axis labels
-    ctx.fillStyle = '#666';
-    ctx.font = '11px sans-serif';
-    ctx.textAlign = 'center';
-    
-    // X-axis labels (hours) - show hour labels for each hour in the range
-    const startHourLabel = Math.floor(minHour);
-    const endHourLabel = Math.ceil(maxHour);
-    const hourLabels = [];
-    for (let hour = startHourLabel; hour <= endHourLabel && hour <= 24; hour++) {
-      if (hour >= 0) {
-        hourLabels.push(hour);
+      // Y-axis labels (moisture)
+      ctx.textAlign = 'right';
+      ctx.font = '11px sans-serif';
+      for (let i = 0; i <= 5; i++) {
+        const y = padding.top + (graphHeight / 5) * (5 - i);
+        const value = Math.round((i / 5) * 100);
+        ctx.fillText(value.toString(), padding.left - 8, y + 3);
       }
-    }
-    
-    // Show labels for each hour, but limit to avoid overcrowding
-    // If we have many hours, show every other hour or every 3rd hour
-    const labelInterval = hourLabels.length > 12 ? 2 : (hourLabels.length > 6 ? 2 : 1);
-    hourLabels.forEach((hour, idx) => {
-      if (idx % labelInterval === 0 || idx === hourLabels.length - 1) {
-        const hourX = padding.left + ((hour - minHour) / timeRange) * graphWidth;
-        if (hourX >= padding.left && hourX <= width - padding.right) {
-          ctx.fillText(hour.toString(), hourX, height - padding.bottom + 15);
+
+      // Update graph legend to include threshold information (after a short delay to ensure DOM is ready)
+      setTimeout(() => {
+        updateGraphLegend(canvas, thresholds);
+      }, 150);
+    } catch (error) {
+      console.error('Error rendering graph:', error);
+      // Draw error message on canvas
+      try {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#f44336';
+          ctx.font = '14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Error rendering graph', canvas.width / 2 || 200, canvas.height / 2 || 75);
         }
+      } catch (e) {
+        console.error('Could not draw error message:', e);
       }
-    });
-
-    // Y-axis labels (moisture)
-    ctx.textAlign = 'right';
-    ctx.font = '11px sans-serif';
-    for (let i = 0; i <= 5; i++) {
-      const y = padding.top + (graphHeight / 5) * (5 - i);
-      const value = Math.round((i / 5) * 100);
-      ctx.fillText(value.toString(), padding.left - 8, y + 3);
     }
-
-    // Update graph legend to include threshold information (after a short delay to ensure DOM is ready)
-    setTimeout(() => {
-      updateGraphLegend(canvas, thresholds);
-    }, 150);
   }, 100);
   
   // Handle window resize for this specific canvas
