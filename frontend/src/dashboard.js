@@ -356,6 +356,13 @@ function setupScheduleCountdowns(carousel) {
         if (waterFill) {
           waterFill.style.height = '100%';
         }
+        
+        // Show notification if not already shown for this zone
+        if (!card.dataset.notificationShown) {
+          showWateringCompleteNotification(zone);
+          card.dataset.notificationShown = 'true';
+        }
+        
         needsResort = true;
       } else {
         // Update countdown
@@ -465,11 +472,83 @@ function moveCompletedZonesToEnd(carousel) {
     carousel.appendChild(card);
   });
   
+  // Reset notification flags when zones are reset
+  allCards.forEach(card => {
+    if (!card.classList.contains('schedule-completed')) {
+      card.dataset.notificationShown = '';
+    }
+  });
+  
   // Trigger carousel update if setup function is available
   const updateCarouselName = carousel.dataset.updateCarousel;
   if (updateCarouselName && typeof window[updateCarouselName] === 'function') {
     window[updateCarouselName]();
   }
+}
+
+// Show notification when watering completes
+function showWateringCompleteNotification(zoneName) {
+  // Create notification container if it doesn't exist
+  let notificationContainer = document.getElementById('watering-notifications-container');
+  if (!notificationContainer) {
+    notificationContainer = document.createElement('div');
+    notificationContainer.id = 'watering-notifications-container';
+    notificationContainer.className = 'watering-notifications-container';
+    document.body.appendChild(notificationContainer);
+  }
+  
+  // Create notification element
+  const notification = document.createElement('div');
+  notification.className = 'watering-notification';
+  notification.setAttribute('data-zone', zoneName);
+  
+  notification.innerHTML = `
+    <div class="notification-content">
+      <div class="notification-icon">💧</div>
+      <div class="notification-text">
+        <div class="notification-title">Watering Complete!</div>
+        <div class="notification-message">${zoneName} has finished watering.</div>
+      </div>
+      <button class="notification-close" aria-label="Close notification">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  `;
+  
+  // Add close button functionality
+  const closeBtn = notification.querySelector('.notification-close');
+  closeBtn.addEventListener('click', () => {
+    dismissNotification(notification);
+  });
+  
+  // Add to container
+  notificationContainer.appendChild(notification);
+  
+  // Trigger animation
+  requestAnimationFrame(() => {
+    notification.classList.add('show');
+  });
+  
+  // Auto-dismiss after 5 seconds
+  setTimeout(() => {
+    if (notification.parentElement) {
+      dismissNotification(notification);
+    }
+  }, 5000);
+}
+
+// Dismiss notification with animation
+function dismissNotification(notification) {
+  notification.classList.remove('show');
+  notification.classList.add('dismissing');
+  
+  setTimeout(() => {
+    if (notification.parentElement) {
+      notification.remove();
+    }
+  }, 300);
 }
 
 function setupZoneGraphToggles() {
