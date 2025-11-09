@@ -40,9 +40,23 @@ const individualZoneSchedules = {
 };
 
 // Generate schedule cards HTML from zone data
+// This combines all individual zone schedules into one general schedule, sorted by time
 function generateScheduleCards() {
+  // Flatten all individual zone schedules into a single array with zone names
+  const allSchedules = [];
+  
+  Object.keys(individualZoneSchedules).forEach(zoneName => {
+    individualZoneSchedules[zoneName].forEach(schedule => {
+      allSchedules.push({
+        zone: zoneName,
+        scheduledTime: schedule.scheduledTime,
+        duration: schedule.duration
+      });
+    });
+  });
+  
   // Sort by scheduled time (earliest first)
-  const sortedSchedule = [...zoneScheduleData].sort((a, b) => {
+  const sortedSchedule = allSchedules.sort((a, b) => {
     return a.scheduledTime.getTime() - b.scheduledTime.getTime();
   });
   
