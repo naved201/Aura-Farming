@@ -2307,22 +2307,31 @@ function setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber) {
 }
 
 /**
- * Fetch all moisture readings from Supabase for a specific zone from today
- * Returns all readings from the start of today to now
+ * Fetch all moisture readings from Supabase for a specific zone from yesterday
+ * Returns all readings from the start of yesterday to the end of yesterday
  * Updates dynamically whenever the graph is opened
  */
 async function fetchHourlyMoistureData(zoneId) {
   try {
-    // Get current date/time and calculate start of today
+    // Calculate yesterday in UTC (no timezone conversion)
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const startOfYesterday = new Date(todayUTC);
+    startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
     
-    // Fetch all telemetry data for this zone from the start of today
+    const endOfYesterday = new Date(todayUTC);
+    
+    console.log(`Fetching data for zone ${zoneId}`);
+    console.log(`UTC - Start of yesterday: ${startOfYesterday.toISOString()}`);
+    console.log(`UTC - End of yesterday: ${endOfYesterday.toISOString()}`);
+    
+    // Fetch all telemetry data for this zone from yesterday (UTC)
     const { data: telemetryData, error } = await supabase
       .from('telemetry')
       .select('ts, moisture')
       .eq('zone_id', zoneId)
-      .gte('ts', startOfToday.toISOString())
+      .gte('ts', startOfYesterday.toISOString())
+      .lt('ts', endOfYesterday.toISOString())
       .order('ts', { ascending: true });
 
     if (error) {
@@ -2331,8 +2340,14 @@ async function fetchHourlyMoistureData(zoneId) {
     }
 
     if (!telemetryData || telemetryData.length === 0) {
-      console.log(`No telemetry data found for zone ${zoneId}`);
+      console.log(`No telemetry data found for zone ${zoneId} for yesterday`);
       return [];
+    }
+
+    console.log(`Found ${telemetryData.length} total readings`);
+    if (telemetryData.length > 0) {
+      console.log(`First reading timestamp: ${telemetryData[0].ts}`);
+      console.log(`Last reading timestamp: ${telemetryData[telemetryData.length - 1].ts}`);
     }
 
     // Filter out readings with null/undefined moisture and convert to graph format
@@ -2340,17 +2355,40 @@ async function fetchHourlyMoistureData(zoneId) {
       .filter(reading => reading.moisture !== null && reading.moisture !== undefined)
       .map(reading => {
         const readingDate = new Date(reading.ts);
-        // Calculate hours since start of today (can be fractional, e.g., 14.5 for 2:30 PM)
-        const hoursSinceStart = (readingDate - startOfToday) / (1000 * 60 * 60);
+        // Calculate hours since start of yesterday in UTC
+        // This gives us the UTC hour of the day (0-23)
+        const hoursSinceStart = (readingDate.getTime() - startOfYesterday.getTime()) / (1000 * 60 * 60);
+        const hourOfDay = readingDate.getUTCHours(); // UTC hour
+        const minutes = readingDate.getUTCMinutes();
+        
         return {
-          hour: hoursSinceStart, // Use fractional hours for x-axis positioning
+          hour: hoursSinceStart, // Hours since start of yesterday in UTC (0-24)
           moisture: reading.moisture,
           timestamp: readingDate,
-          hourOfDay: readingDate.getHours(),
-          minutes: readingDate.getMinutes()
+          hourOfDay: hourOfDay, // UTC hour of day (0-23)
+          minutes: minutes
         };
       })
       .sort((a, b) => a.hour - b.hour); // Sort by time
+
+    console.log(`Processed ${readingsArray.length} valid readings`);
+    if (readingsArray.length > 0) {
+      const minHour = readingsArray[0].hour;
+      const maxHour = readingsArray[readingsArray.length - 1].hour;
+      console.log(`Hour range: ${minHour.toFixed(2)} to ${maxHour.toFixed(2)}`);
+      console.log(`First 3 readings:`, readingsArray.slice(0, 3).map(r => ({ 
+        hour: r.hour.toFixed(2), 
+        hourOfDay: r.hourOfDay, 
+        moisture: r.moisture,
+        timestamp: r.timestamp.toISOString()
+      })));
+      console.log(`Last 3 readings:`, readingsArray.slice(-3).map(r => ({ 
+        hour: r.hour.toFixed(2), 
+        hourOfDay: r.hourOfDay, 
+        moisture: r.moisture,
+        timestamp: r.timestamp.toISOString()
+      })));
+    }
 
     return readingsArray;
   } catch (error) {
@@ -2476,40 +2514,30 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
       }
 
       // Prepare data points from real readings
-      // hourlyReadings now contains all readings from today, sorted by time
+      // hourlyReadings now contains all readings from yesterday, sorted by time
       const dataPoints = (hourlyReadings || []).map(reading => ({
-        hour: reading.hour, // This is now fractional hours since start of day
+        hour: reading.hour, // This is fractional hours since start of yesterday (0-24)
         moisture: reading.moisture,
         timestamp: reading.timestamp,
         hourOfDay: reading.hourOfDay,
         minutes: reading.minutes
       }));
 
-      // Calculate time range for x-axis scaling (use default if no data)
-      let minHour = 0;
-      let maxHour = 24;
-      let timeRange = 24;
-      let numDataPoints = dataPoints.length;
+      // Always show full day range (0-23 hours) for a complete day
+      const minHour = 0;
+      const maxHour = 23;
+      const timeRange = 24; // 24 hours total (0-23)
+      const numDataPoints = dataPoints.length;
 
-      if (dataPoints.length > 0) {
-        minHour = dataPoints[0].hour;
-        maxHour = dataPoints[dataPoints.length - 1].hour;
-        timeRange = maxHour - minHour || 1; // Avoid division by zero
-      }
-
-      // Draw vertical grid lines - show grid lines for each hour of the day
-      const startHour = Math.floor(minHour);
-      const endHour = Math.ceil(maxHour);
-      for (let hour = startHour; hour <= endHour; hour++) {
-        if (hour >= 0 && hour <= 24) {
-          // Calculate x position based on time
-          const hourX = padding.left + ((hour - minHour) / timeRange) * graphWidth;
-          if (hourX >= padding.left && hourX <= width - padding.right) {
-            ctx.beginPath();
-            ctx.moveTo(hourX, padding.top);
-            ctx.lineTo(hourX, height - padding.bottom);
-            ctx.stroke();
-          }
+      // Draw vertical grid lines - show grid lines for each hour of the day (0-23)
+      for (let hour = 0; hour <= 23; hour++) {
+        // Calculate x position: hour 0 at left, hour 23 at right
+        const hourX = padding.left + (hour / 23) * graphWidth;
+        if (hourX >= padding.left && hourX <= width - padding.right) {
+          ctx.beginPath();
+          ctx.moveTo(hourX, padding.top);
+          ctx.lineTo(hourX, height - padding.bottom);
+          ctx.stroke();
         }
       }
 
@@ -2599,8 +2627,10 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
         ctx.lineWidth = 2;
         ctx.beginPath();
         dataPoints.forEach((point, index) => {
-          // Calculate x position based on time (fractional hours since start of day)
-          const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
+          // Calculate x position: hour 0 at left edge, hour 23 at right edge
+          // Clamp hour to 0-23 range for positioning
+          const clampedHour = Math.max(0, Math.min(23, point.hour));
+          const x = padding.left + (clampedHour / 23) * graphWidth;
           // Moisture is already a percentage (0-100), clamp it to ensure it's within bounds
           const moisture = Math.max(0, Math.min(100, point.moisture));
           const y = height - padding.bottom - (moisture / 100) * graphHeight;
@@ -2614,7 +2644,8 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
       } else if (numDataPoints === 1) {
         // Draw a single point as a line
         const point = dataPoints[0];
-        const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
+        const clampedHour = Math.max(0, Math.min(23, point.hour));
+        const x = padding.left + (clampedHour / 23) * graphWidth;
         const moisture = Math.max(0, Math.min(100, point.moisture));
         const y = height - padding.bottom - (moisture / 100) * graphHeight;
         ctx.strokeStyle = '#000000';
@@ -2627,8 +2658,9 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
 
       // Draw data points as circles (black)
       dataPoints.forEach((point) => {
-        // Calculate x position based on time (fractional hours since start of day)
-        const x = padding.left + ((point.hour - minHour) / timeRange) * graphWidth;
+        // Calculate x position: hour 0 at left edge, hour 23 at right edge
+        const clampedHour = Math.max(0, Math.min(23, point.hour));
+        const x = padding.left + (clampedHour / 23) * graphWidth;
         const moisture = Math.max(0, Math.min(100, point.moisture));
         const y = height - padding.bottom - (moisture / 100) * graphHeight;
         
@@ -2644,27 +2676,23 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
       
-      // X-axis labels (hours) - show hour labels for each hour in the range
-      const startHourLabel = Math.floor(minHour);
-      const endHourLabel = Math.ceil(maxHour);
-      const hourLabels = [];
-      for (let hour = startHourLabel; hour <= endHourLabel && hour <= 24; hour++) {
-        if (hour >= 0) {
-          hourLabels.push(hour);
+      // X-axis labels (hours) - show hour labels for 0-23
+      // Show labels every 2-3 hours to avoid overcrowding
+      const labelInterval = 2; // Show every 2 hours: 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22
+      for (let hour = 0; hour <= 23; hour += labelInterval) {
+        // Calculate x position: hour 0 at left, hour 23 at right
+        const hourX = padding.left + (hour / 23) * graphWidth;
+        if (hourX >= padding.left && hourX <= width - padding.right) {
+          ctx.fillText(hour.toString(), hourX, height - padding.bottom + 15);
         }
       }
-      
-      // Show labels for each hour, but limit to avoid overcrowding
-      // If we have many hours, show every other hour or every 3rd hour
-      const labelInterval = hourLabels.length > 12 ? 2 : (hourLabels.length > 6 ? 2 : 1);
-      hourLabels.forEach((hour, idx) => {
-        if (idx % labelInterval === 0 || idx === hourLabels.length - 1) {
-          const hourX = padding.left + ((hour - minHour) / timeRange) * graphWidth;
-          if (hourX >= padding.left && hourX <= width - padding.right) {
-            ctx.fillText(hour.toString(), hourX, height - padding.bottom + 15);
-          }
+      // Also show hour 23 if it's not already included
+      if (23 % labelInterval !== 0) {
+        const hour23X = padding.left + (23 / 23) * graphWidth;
+        if (hour23X <= width - padding.right) {
+          ctx.fillText('23', hour23X, height - padding.bottom + 15);
         }
-      });
+      }
 
       // Y-axis labels (moisture)
       ctx.textAlign = 'right';
