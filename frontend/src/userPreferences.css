@@ -265,6 +265,10 @@
   margin-bottom: 32px;
 }
 
+#database-zones-container {
+  display: contents;
+}
+
 @media (min-width: 768px) {
   .zones-list {
     grid-template-columns: repeat(4, 1fr);
