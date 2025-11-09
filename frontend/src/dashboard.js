@@ -1,27 +1,284 @@
+import { supabase } from './config.js';
+import { getCurrentUser } from './auth.js';
+
 export function setupDashboard() {
-  // Setup zones carousel
-  setupZonesCarousel();
-  
-  // Setup watering schedule columns
-  setupWateringScheduleColumns();
-  
-  // Setup update buttons
-  const updateButtons = document.querySelectorAll('.update-button');
-  updateButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const zoneContainer = btn.closest('.zone-container');
-      const zoneTitle = zoneContainer?.querySelector('.zone-title')?.textContent || 'Zone';
-      alert(`Updating ${zoneTitle}...`);
-      // Add actual update logic here
+  // Load zones from database and render them
+  loadAndRenderZones().then(() => {
+    // Setup zones carousel after zones are loaded
+    setupZonesCarousel();
+    
+    // Setup watering schedule columns
+    setupWateringScheduleColumns();
+    
+    // Load telemetry data for all zones
+    loadZoneTelemetryData();
+    
+    // Setup update buttons
+    const updateButtons = document.querySelectorAll('.update-button');
+    updateButtons.forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const zoneContainer = btn.closest('.zone-container');
+        const zoneTitle = zoneContainer?.querySelector('.zone-title')?.textContent || 'Zone';
+        // Refresh telemetry data when update button is clicked
+        await loadZoneTelemetryData();
+        alert(`${zoneTitle} updated!`);
+      });
     });
+
+    // Setup zone graph toggles
+    setupZoneGraphToggles();
+    
+    // Setup zone schedule toggles
+    setupZoneScheduleToggles();
+  });
+}
+
+/**
+ * Load zones from database and render them dynamically
+ */
+async function loadAndRenderZones() {
+  try {
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
+      console.warn('User not authenticated, cannot load zones');
+      return;
+    }
+
+    // Get all zones for the current user
+    const { data: zones, error: zonesError } = await supabase
+      .from('zones')
+      .select('id, name')
+      .eq('owner', user.id)
+      .order('created_at', { ascending: true });
+
+    if (zonesError) {
+      console.error('Error fetching zones:', zonesError);
+      return;
+    }
+
+    if (!zones || zones.length === 0) {
+      console.log('No zones found for user');
+      const carousel = document.getElementById('zones-carousel');
+      if (carousel) {
+        carousel.innerHTML = '<div class="no-zones-message" style="padding: 40px; text-align: center; color: #666;">No zones configured yet. Create a zone in User Preferences.</div>';
+      }
+      return;
+    }
+
+    // Get the carousel container
+    const carousel = document.getElementById('zones-carousel');
+    if (!carousel) {
+      console.error('Zones carousel not found');
+      return;
+    }
+
+    // Clear existing zones
+    carousel.innerHTML = '';
+
+    // Generate HTML for each zone
+    zones.forEach((zone, index) => {
+      const zoneHTML = generateZoneHTML(zone, index + 1);
+      carousel.insertAdjacentHTML('beforeend', zoneHTML);
+    });
+
+    console.log(`✅ Loaded ${zones.length} zones from database`);
+  } catch (error) {
+    console.error('Error in loadAndRenderZones:', error);
+  }
+}
+
+/**
+ * Generate HTML for a single zone
+ */
+function generateZoneHTML(zone, index) {
+  const zoneId = zone.id;
+  const zoneName = zone.name;
+  
+  return `
+    <div class="zone-item-wrapper" data-zone-id="${zoneId}">
+      <div class="zone-container">
+        <div class="zone-header">
+          <h3 class="zone-title">${zoneName}</h3>
+          <button class="update-button" aria-label="Update ${zoneName}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+            <span>Update</span>
+          </button>
+        </div>
+        <div class="zone-data-grid">
+          <div class="data-panel">
+            <h4 class="data-panel-title">Moisture level</h4>
+            <div class="data-panel-content">
+              <p class="data-value">--</p>
+            </div>
+          </div>
+          <div class="data-panel">
+            <h4 class="data-panel-title">Rainfall</h4>
+            <div class="data-panel-content">
+              <p class="data-value">--</p>
+            </div>
+          </div>
+          <div class="data-panel">
+            <h4 class="data-panel-title">Soil health</h4>
+            <p class="data-panel-subtitle">(pertaining how long its wet for)</p>
+            <div class="data-panel-content">
+              <p class="data-value">--</p>
+            </div>
+          </div>
+        </div>
+        <button class="zone-graph-toggle" data-zone-id="${zoneId}" aria-label="Toggle ${zoneName} Graph">
+          <span class="zone-graph-toggle-text">View Graph</span>
+          <svg class="zone-graph-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+        <button class="zone-schedule-toggle" data-zone-id="${zoneId}" aria-label="Toggle ${zoneName} Schedule">
+          <span class="zone-schedule-toggle-text">View Zone Schedule</span>
+          <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+      <div class="zone-graph-section" data-zone-id="${zoneId}">
+        <div class="zone-graph-section-inner">
+          <div class="zone-graph-container">
+            <canvas class="zone-moisture-graph" data-zone-id="${zoneId}"></canvas>
+            <div class="graph-axes">
+              <div class="graph-y-axis">Moisture</div>
+              <div class="graph-x-axis">Hours</div>
+            </div>
+          </div>
+          <div class="graph-legend">
+            <div class="legend-item">
+              <span class="legend-line legend-line-black"></span>
+              <span class="legend-text">~ moisture good <=> moisture medium</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line legend-line-blue"></span>
+              <span class="legend-text">~ rainfall no <=> rainfall yes</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot"></span>
+              <span class="legend-text">~ no problem <=> yes plan : medium</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="zone-schedule-section" data-zone-id="${zoneId}">
+        <div class="zone-schedule-section-inner">
+          <div class="zone-individual-schedule" id="zone-${zoneId}-schedule-columns">
+            <!-- Schedule cards will be generated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Load telemetry data for zones and update the dashboard
+ */
+async function loadZoneTelemetryData() {
+  try {
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
+      console.warn('User not authenticated, cannot load telemetry data');
+      return;
+    }
+
+    // Get all zones for the current user
+    const { data: zones, error: zonesError } = await supabase
+      .from('zones')
+      .select('id, name')
+      .eq('owner', user.id);
+
+    if (zonesError) {
+      console.error('Error fetching zones:', zonesError);
+      return;
+    }
+
+    if (!zones || zones.length === 0) {
+      console.log('No zones found for user');
+      return;
+    }
+
+    // For each zone, get the latest telemetry data
+    for (const zone of zones) {
+      // Get latest telemetry for this zone
+      const { data: telemetry, error: telemetryError } = await supabase
+        .from('telemetry')
+        .select('moisture, rain')
+        .eq('zone_id', zone.id)
+        .order('ts', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (telemetryError) {
+        console.error(`Error fetching telemetry for zone ${zone.name}:`, telemetryError);
+        continue;
+      }
+
+      if (!telemetry) {
+        console.log(`No telemetry data found for zone ${zone.name}`);
+        continue;
+      }
+
+      // Find the zone container in the DOM by zone_id
+      const zoneWrapper = document.querySelector(`.zone-item-wrapper[data-zone-id="${zone.id}"]`);
+      
+      if (zoneWrapper) {
+        updateZoneDisplay(zoneWrapper, telemetry);
+      } else {
+        console.log(`Could not find zone element for zone ${zone.name} (${zone.id})`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in loadZoneTelemetryData:', error);
+  }
+}
+
+/**
+ * Update zone display with telemetry data
+ */
+function updateZoneDisplay(zoneWrapper, telemetry) {
+  if (!zoneWrapper) return;
+
+  // Find moisture level panel
+  const moisturePanel = zoneWrapper.querySelector('.data-panel-title');
+  let moistureValueElement = null;
+  
+  // Find the moisture value element
+  const dataPanels = zoneWrapper.querySelectorAll('.data-panel');
+  dataPanels.forEach(panel => {
+    const title = panel.querySelector('.data-panel-title');
+    if (title && title.textContent.trim() === 'Moisture level') {
+      moistureValueElement = panel.querySelector('.data-value');
+    }
   });
 
-  // Setup zone graph toggles
-  setupZoneGraphToggles();
-  
-  // Setup zone schedule toggles
-  setupZoneScheduleToggles();
+  // Update moisture level
+  if (moistureValueElement && telemetry.moisture !== null && telemetry.moisture !== undefined) {
+    moistureValueElement.textContent = `${telemetry.moisture.toFixed(1)}%`;
+  }
+
+  // Find rainfall panel
+  let rainfallValueElement = null;
+  dataPanels.forEach(panel => {
+    const title = panel.querySelector('.data-panel-title');
+    if (title && title.textContent.trim() === 'Rainfall') {
+      rainfallValueElement = panel.querySelector('.data-value');
+    }
+  });
+
+  // Update rainfall
+  if (rainfallValueElement && telemetry.rain !== null && telemetry.rain !== undefined) {
+    // rain is boolean, display "Yes" or "No"
+    rainfallValueElement.textContent = telemetry.rain ? 'Yes' : 'No';
+  }
 }
 
 function setupZonesCarousel() {
