@@ -1,3 +1,5 @@
+import { getAllZonesTelemetry, subscribeToAllZonesTelemetry } from './telemetry.js';
+
 export function setupDashboard() {
   // Setup zones carousel
   setupZonesCarousel();
@@ -22,6 +24,112 @@ export function setupDashboard() {
   
   // Setup zone schedule toggles
   setupZoneScheduleToggles();
+  
+  // Load and display real-time telemetry data
+  loadTelemetryData();
+  
+  // Subscribe to real-time updates
+  subscribeToTelemetryUpdates();
+}
+
+// Load initial telemetry data for all zones
+async function loadTelemetryData() {
+  try {
+    const telemetryData = await getAllZonesTelemetry(1);
+    updateDashboardWithTelemetry(telemetryData);
+  } catch (err) {
+    console.error('Error loading telemetry data:', err);
+  }
+}
+
+// Subscribe to real-time telemetry updates
+function subscribeToTelemetryUpdates() {
+  subscribeToAllZonesTelemetry((zoneId, telemetryData) => {
+    console.log('New telemetry data received:', zoneId, telemetryData);
+    // Update the specific zone's display
+    updateZoneTelemetry(zoneId, telemetryData);
+  });
+}
+
+// Update dashboard with telemetry data
+function updateDashboardWithTelemetry(telemetryData) {
+  // Update each zone's display
+  Object.keys(telemetryData).forEach(zoneId => {
+    const latest = telemetryData[zoneId][0];
+    if (latest) {
+      updateZoneTelemetry(zoneId, latest);
+    }
+  });
+}
+
+// Update a specific zone's telemetry display
+function updateZoneTelemetry(zoneId, telemetry) {
+  // Find zone card by zone ID (you may need to add data-zone-id attribute to zone cards)
+  const zoneCards = document.querySelectorAll('.zone-card, .zone-item-wrapper');
+  
+  zoneCards.forEach(card => {
+    // Try to match by zone ID if data attribute exists
+    const cardZoneId = card.getAttribute('data-zone-id');
+    if (cardZoneId === zoneId) {
+      updateZoneCard(card, telemetry);
+    }
+  });
+  
+  // Also try to update by zone name/number if zone ID matching doesn't work
+  // This is a fallback for existing zone cards that may not have zone IDs
+  updateZoneCardsByIndex(telemetry);
+}
+
+// Update zone card with telemetry data
+function updateZoneCard(card, telemetry) {
+  // Update moisture display
+  const moistureEl = card.querySelector('.moisture-value, .zone-moisture-value');
+  if (moistureEl && telemetry.moisture !== null && telemetry.moisture !== undefined) {
+    moistureEl.textContent = `${telemetry.moisture.toFixed(1)}%`;
+  }
+  
+  // Update rainfall display (rain is boolean: 0 = false, 1 = true)
+  const rainEl = card.querySelector('.rain-value, .zone-rain-value');
+  if (rainEl && telemetry.rain !== null && telemetry.rain !== undefined) {
+    const isRaining = telemetry.rain === 1 || telemetry.rain === true;
+    rainEl.textContent = isRaining ? 'Yes' : 'No';
+    // Optionally add a class for styling
+    rainEl.classList.toggle('raining', isRaining);
+    rainEl.classList.toggle('not-raining', !isRaining);
+  }
+  
+  // Update status (dry, moist, wet)
+  const statusEl = card.querySelector('.status-value, .zone-status-value');
+  if (statusEl && telemetry.status) {
+    statusEl.textContent = telemetry.status.charAt(0).toUpperCase() + telemetry.status.slice(1);
+    // Add status class for styling
+    statusEl.className = statusEl.className.replace(/\bstatus-(dry|moist|wet)\b/g, '');
+    statusEl.classList.add(`status-${telemetry.status}`);
+  }
+  
+  // Update timestamp
+  const timestampEl = card.querySelector('.timestamp-value, .zone-timestamp-value');
+  if (timestampEl && telemetry.ts) {
+    const date = new Date(telemetry.ts);
+    timestampEl.textContent = date.toLocaleTimeString();
+  }
+  
+  console.log('Updated zone card with telemetry:', {
+    moisture: telemetry.moisture,
+    rain: telemetry.rain,
+    status: telemetry.status,
+    timestamp: telemetry.ts
+  });
+}
+
+// Fallback: Update zone cards by index (for demo zones)
+function updateZoneCardsByIndex(telemetry) {
+  // This is a fallback method - update the first zone card found
+  // In production, you should properly map zone IDs to zone cards
+  const firstZoneCard = document.querySelector('.zone-card, .zone-item-wrapper');
+  if (firstZoneCard) {
+    updateZoneCard(firstZoneCard, telemetry);
+  }
 }
 
 function setupZonesCarousel() {
