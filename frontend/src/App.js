@@ -28,7 +28,12 @@ export function navigateTo(page) {
     }, 50);
   } else if (page === 'user-preferences') {
     contentArea.innerHTML = createUserPreferencesComponent();
-    setTimeout(() => setupUserPreferences(), 50);
+    setTimeout(async () => {
+      setupUserPreferences();
+      // Load crop options from Supabase
+      const { loadCropOptions } = await import('./userPreferences.js');
+      loadCropOptions();
+    }, 50);
   } else if (page === 'crop-management') {
     contentArea.innerHTML = createCropManagementComponent();
   }
@@ -166,6 +171,11 @@ export function setupUserPreferences() {
             input.value = '';
           }
         });
+        // Also clear select dropdown
+        const cropSelect = document.getElementById('crop-type');
+        if (cropSelect) {
+          cropSelect.value = '';
+        }
       }
     });
   }
