@@ -183,6 +183,12 @@ function setupWateringScheduleCarousel() {
   
   // Setup countdown timers and auto-rotation
   setupScheduleCountdowns(carousel);
+  
+  // Setup zone disable/enable functionality
+  setupZoneDisableControls(carousel);
+  
+  // Setup global halt/resume functionality
+  setupGlobalHaltControl();
 
   function updateCarousel() {
     cards = carousel.querySelectorAll('.schedule-card');
@@ -331,6 +337,7 @@ function setupScheduleCountdowns(carousel) {
   function updateCountdowns() {
     const cards = Array.from(carousel.querySelectorAll('.schedule-card'));
     let needsResort = false;
+    const isHalted = document.body.classList.contains('watering-halted');
     
     cards.forEach(card => {
       const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
@@ -338,6 +345,23 @@ function setupScheduleCountdowns(carousel) {
       const timeDisplay = card.querySelector('.schedule-time');
       const waterFill = card.querySelector('.water-tube-fill');
       const zone = card.getAttribute('data-zone');
+      const checkbox = card.querySelector('.zone-disable-checkbox');
+      const isDisabled = !checkbox || !checkbox.checked;
+      
+      // Skip disabled zones or if queue is halted
+      if (isDisabled || isHalted) {
+        if (countdownEl && !card.classList.contains('schedule-completed')) {
+          countdownEl.textContent = isHalted ? 'Halted' : 'Disabled';
+          countdownEl.classList.add('paused');
+        }
+        card.classList.add('zone-disabled');
+        return;
+      } else {
+        card.classList.remove('zone-disabled');
+        if (countdownEl) {
+          countdownEl.classList.remove('paused');
+        }
+      }
       
       if (!scheduledTime || !countdownEl) return;
       
@@ -431,7 +455,13 @@ function moveCompletedZonesToEnd(carousel) {
   }
   
   // Reset completed cards to start after the last active card
-  completedCards.forEach((card, index) => {
+  // Only reset enabled zones (skip disabled ones)
+  const enabledCompletedCards = completedCards.filter(card => {
+    const checkbox = card.querySelector('.zone-disable-checkbox');
+    return checkbox && checkbox.checked;
+  });
+  
+  enabledCompletedCards.forEach((card, index) => {
     // Remove completed class and reset
     card.classList.remove('schedule-completed');
     const countdownEl = card.querySelector('.countdown-value');
@@ -445,7 +475,7 @@ function moveCompletedZonesToEnd(carousel) {
     // Reset UI elements
     if (countdownEl) {
       countdownEl.textContent = '10s';
-      countdownEl.classList.remove('completed');
+      countdownEl.classList.remove('completed', 'paused');
     }
     if (waterFill) {
       waterFill.style.height = '0%';
@@ -453,10 +483,19 @@ function moveCompletedZonesToEnd(carousel) {
     if (statusBadge) {
       statusBadge.textContent = 'Upcoming';
     }
+    
+    // Reset notification flag
+    card.dataset.notificationShown = '';
   });
   
-  // Combine all cards and sort by time
-  const allCards = [...activeCards, ...completedCards];
+  // Keep disabled completed cards as completed (don't reset them)
+  const disabledCompletedCards = completedCards.filter(card => {
+    const checkbox = card.querySelector('.zone-disable-checkbox');
+    return !checkbox || !checkbox.checked;
+  });
+  
+  // Combine all cards and sort by time (only enabled completed cards are reset)
+  const allCards = [...activeCards, ...enabledCompletedCards, ...disabledCompletedCards];
   allCards.sort((a, b) => {
     const timeA = parseInt(a.getAttribute('data-scheduled-time')) || 0;
     const timeB = parseInt(b.getAttribute('data-scheduled-time')) || 0;
@@ -549,6 +588,135 @@ function dismissNotification(notification) {
       notification.remove();
     }
   }, 300);
+}
+
+// Setup zone disable/enable controls
+function setupZoneDisableControls(carousel) {
+  const checkboxes = carousel.querySelectorAll('.zone-disable-checkbox');
+  
+  checkboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', (e) => {
+      const card = checkbox.closest('.schedule-card');
+      const zone = checkbox.getAttribute('data-zone');
+      const isHalted = document.body.classList.contains('watering-halted');
+      
+      if (checkbox.checked) {
+        // Zone enabled - remove disabled state
+        card.classList.remove('zone-disabled');
+        const countdownEl = card.querySelector('.countdown-value');
+        
+        if (countdownEl) {
+          countdownEl.classList.remove('paused');
+          
+          // If zone was completed and is being re-enabled, reset it
+          if (card.classList.contains('schedule-completed')) {
+            card.classList.remove('schedule-completed');
+            const scheduledTime = parseInt(card.getAttribute('data-scheduled-time')) || Date.now();
+            const timeUntilSeconds = Math.max(0, Math.floor((scheduledTime - Date.now()) / 1000));
+            countdownEl.textContent = timeUntilSeconds > 0 ? `${timeUntilSeconds}s` : '10s';
+            
+            // Reset water tube
+            const waterFill = card.querySelector('.water-tube-fill');
+            if (waterFill) {
+              waterFill.style.height = '0%';
+            }
+            
+            // Reset status badge
+            const statusBadge = card.querySelector('.schedule-status-badge');
+            if (statusBadge) {
+              statusBadge.textContent = 'Upcoming';
+            }
+            
+            // Reset notification flag
+            card.dataset.notificationShown = '';
+          } else if (isHalted) {
+            countdownEl.textContent = 'Halted';
+            countdownEl.classList.add('paused');
+          }
+        }
+        
+        // Re-sort cards to include this zone in the queue
+        sortScheduleCardsByTime(carousel);
+      } else {
+        // Zone disabled - add disabled state
+        card.classList.add('zone-disabled');
+        const countdownEl = card.querySelector('.countdown-value');
+        if (countdownEl && !card.classList.contains('schedule-completed')) {
+          countdownEl.textContent = 'Disabled';
+          countdownEl.classList.add('paused');
+        }
+      }
+    });
+  });
+}
+
+// Setup global halt/resume control
+function setupGlobalHaltControl() {
+  const haltButton = document.getElementById('halt-queue-btn');
+  if (!haltButton) return;
+  
+  haltButton.addEventListener('click', () => {
+    const isHalted = document.body.classList.contains('watering-halted');
+    
+    if (isHalted) {
+      // Resume watering
+      document.body.classList.remove('watering-halted');
+      haltButton.classList.remove('halted');
+      const buttonText = haltButton.querySelector('.halt-button-text');
+      const buttonIcon = haltButton.querySelector('svg');
+      
+      if (buttonText) buttonText.textContent = 'Halt All';
+      
+      // Update icon to pause
+      if (buttonIcon) {
+        buttonIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" rx="2"/>';
+      }
+      
+      // Restore countdowns for enabled zones
+      const carousel = document.getElementById('watering-carousel');
+      if (carousel) {
+        const cards = carousel.querySelectorAll('.schedule-card:not(.zone-disabled):not(.schedule-completed)');
+        cards.forEach(card => {
+          const countdownEl = card.querySelector('.countdown-value');
+          const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
+          if (countdownEl && scheduledTime) {
+            const now = Date.now();
+            const timeUntilSeconds = Math.floor((scheduledTime - now) / 1000);
+            if (timeUntilSeconds > 0) {
+              countdownEl.textContent = `${timeUntilSeconds}s`;
+              countdownEl.classList.remove('paused');
+            }
+          }
+        });
+      }
+    } else {
+      // Halt watering
+      document.body.classList.add('watering-halted');
+      haltButton.classList.add('halted');
+      const buttonText = haltButton.querySelector('.halt-button-text');
+      const buttonIcon = haltButton.querySelector('svg');
+      
+      if (buttonText) buttonText.textContent = 'Resume';
+      
+      // Update icon to play
+      if (buttonIcon) {
+        buttonIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
+      }
+      
+      // Update all active cards to show "Halted"
+      const carousel = document.getElementById('watering-carousel');
+      if (carousel) {
+        const cards = carousel.querySelectorAll('.schedule-card:not(.zone-disabled):not(.schedule-completed)');
+        cards.forEach(card => {
+          const countdownEl = card.querySelector('.countdown-value');
+          if (countdownEl) {
+            countdownEl.textContent = 'Halted';
+            countdownEl.classList.add('paused');
+          }
+        });
+      }
+    }
+  });
 }
 
 function setupZoneGraphToggles() {

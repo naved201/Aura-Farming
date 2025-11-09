@@ -30,6 +30,10 @@ function generateScheduleCards() {
     return `
     <div class="schedule-card" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}">
       <div class="schedule-card-header">
+        <label class="zone-disable-checkbox-label">
+          <input type="checkbox" class="zone-disable-checkbox" data-zone="${schedule.zone}" checked>
+          <span class="checkbox-custom"></span>
+        </label>
         <span class="schedule-zone-name">${schedule.zone}</span>
         <span class="schedule-status-badge">Upcoming</span>
       </div>
@@ -391,7 +395,15 @@ export function createReviewsComponent() {
 
           <!-- Watering Schedule Carousel Section -->
           <div class="watering-schedule-section">
-            <h2 class="watering-schedule-title">Watering Schedule</h2>
+            <div class="watering-schedule-header">
+              <h2 class="watering-schedule-title">Watering Schedule</h2>
+              <button class="halt-queue-button" id="halt-queue-btn" aria-label="Halt All Watering">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="6" y="6" width="12" height="12" rx="2"/>
+                </svg>
+                <span class="halt-button-text">Halt All</span>
+              </button>
+            </div>
             <div class="watering-schedule-carousel-container">
               <button class="watering-carousel-arrow watering-carousel-arrow-left" aria-label="Previous Schedule">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
