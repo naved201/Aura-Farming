@@ -4477,8 +4477,8 @@
 .graph-axes {
   position: relative;
   display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
+  justify-content: center;
+  margin-top: 12px;
   font-size: 14px;
   font-weight: 600;
   color: var(--schemes-on-surface);
@@ -4486,15 +4486,195 @@
 
 .graph-y-axis {
   position: absolute;
-  left: -50px;
-  top: 50%;
-  transform: translateY(-50%) rotate(-90deg);
+  left: -60px;
+  top: -83px;
+  transform: rotate(-90deg);
   transform-origin: center;
   white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .graph-x-axis {
-  margin-left: auto;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Water Saved Section */
+.water-saved-section {
+  margin: 24px auto;
+  display: flex;
+  justify-content: center;
+  animation: fadeInUp 0.3s ease-out 0.4s both;
+  width: 100%;
+}
+
+.water-saved-card {
+  background: var(--gradient-card);
+  border-radius: 16px;
+  border: 2px solid rgba(102, 187, 106, 0.3);
+  box-shadow: var(--shadow-md);
+  padding: 24px;
+  max-width: 500px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.water-saved-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(27, 94, 32, 0.2);
+  border-color: rgba(102, 187, 106, 0.5);
+}
+
+.water-saved-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.water-saved-title {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #2e7d32, #4caf50, #66bb6a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.water-saved-info-btn {
+  background: rgba(102, 187, 106, 0.1);
+  border: 1px solid rgba(102, 187, 106, 0.3);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  transition: all 0.2s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.water-saved-info-btn:hover {
+  background: rgba(102, 187, 106, 0.2);
+  transform: scale(1.1);
+}
+
+.water-saved-info-btn svg {
+  stroke: #2e7d32;
+}
+
+.water-saved-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.water-saved-loading {
+  text-align: center;
+  color: rgba(29, 27, 32, 0.6);
+  font-size: 14px;
+  padding: 20px;
+}
+
+.water-saved-primary-stat {
+  font-size: 32px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #2196F3, #64B5F6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.water-saved-percentage {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2e7d32;
+}
+
+.water-saved-empty {
+  text-align: center;
+  color: rgba(29, 27, 32, 0.6);
+  font-size: 13px;
+  padding: 12px;
+}
+
+.water-saved-bar-container {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.water-saved-bar-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(29, 27, 32, 0.7);
+}
+
+.water-saved-bar-track {
+  width: 100%;
+  height: 12px;
+  background: rgba(158, 158, 158, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(158, 158, 158, 0.3);
+}
+
+.water-saved-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2196F3, #64B5F6);
+  border-radius: 6px;
+  transition: width 0.5s ease;
+  position: relative;
+}
+
+.water-saved-bar-saved {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #66bb6a);
+  border-radius: 0 6px 6px 0;
+  transition: width 0.5s ease;
+}
+
+.water-saved-sparkline {
+  width: 100%;
+  height: 32px;
+  margin: 8px 0;
+}
+
+.water-saved-footer {
+  padding-top: 12px;
+  border-top: 1px solid rgba(102, 187, 106, 0.15);
+}
+
+.water-saved-footer-text {
+  font-size: 10px;
+  color: rgba(29, 27, 32, 0.5);
+  text-align: center;
+  margin: 0;
+  font-style: italic;
 }
 
 .graph-legend {

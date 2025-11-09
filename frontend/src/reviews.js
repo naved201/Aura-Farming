@@ -443,10 +443,26 @@ export function createReviewsComponent() {
             <!-- Alerts will be dynamically inserted here -->
           </div>
 
-          <!-- Water Saved Metric -->
-          <div class="water-saved-metric">
-            <p class="water-saved-label">Water saved</p>
-            <p class="water-saved-value">--</p>
+          <!-- Water Saved Card -->
+          <div class="water-saved-section">
+            <div class="water-saved-card" id="water-saved-card">
+              <div class="water-saved-header">
+                <h2 class="water-saved-title">Water saved</h2>
+                <button class="water-saved-info-btn" title="Baseline is what a fixed schedule would have watered, based on your zone defaults. Actual is what we irrigated." aria-label="Info">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="water-saved-content" id="water-saved-content">
+                <div class="water-saved-loading">Loading...</div>
+              </div>
+              <div class="water-saved-footer">
+                <p class="water-saved-footer-text">Baseline = scheduled watering × zone defaults</p>
+              </div>
+            </div>
           </div>
 
           <!-- Zones Carousel Section -->
@@ -468,32 +484,6 @@ export function createReviewsComponent() {
                 <path d="M9 18l6-6-6-6"/>
               </svg>
             </button>
-          </div>
-
-          <!-- Watering Schedule Columns Section -->
-          <div class="watering-schedule-section">
-            <div class="watering-schedule-header">
-              <div class="watering-schedule-title-group">
-                <div class="watering-schedule-icon">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
-                  </svg>
-                </div>
-                <div class="watering-schedule-title-text">
-                  <h2 class="watering-schedule-title">General Watering Schedule</h2>
-                  <p class="watering-schedule-subtitle">All zones unified schedule</p>
-                </div>
-              </div>
-              <button class="halt-queue-button" id="halt-queue-btn" aria-label="Halt All Watering">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="6" y="6" width="12" height="12" rx="2"/>
-                </svg>
-                <span class="halt-button-text">Halt All</span>
-              </button>
-            </div>
-            <div class="watering-schedule-columns-wrapper" id="watering-schedule-columns">
-                  ${generateScheduleCards()}
-            </div>
           </div>
 
         </div>
