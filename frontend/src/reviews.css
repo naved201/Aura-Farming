@@ -2606,6 +2606,164 @@
   white-space: nowrap;
 }
 
+/* Watering Schedule Columns Layout */
+.watering-schedule-columns-wrapper {
+  width: 100%;
+  margin-top: 16px;
+}
+
+.schedule-columns-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.schedule-column {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 2px solid rgba(102, 187, 106, 0.2);
+  overflow: hidden;
+  min-height: 200px;
+  max-height: 600px;
+  box-sizing: border-box;
+}
+
+.schedule-column[data-category="imminent"] {
+  border-color: rgba(255, 152, 0, 0.4);
+  background: rgba(255, 152, 0, 0.05);
+}
+
+.schedule-column[data-category="delayed"] {
+  border-color: rgba(244, 67, 54, 0.4);
+  background: rgba(244, 67, 54, 0.05);
+}
+
+.schedule-column[data-category="user-pushed"] {
+  border-color: rgba(156, 39, 176, 0.4);
+  background: rgba(156, 39, 176, 0.05);
+}
+
+.schedule-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(102, 187, 106, 0.15), rgba(76, 175, 80, 0.1));
+  border-bottom: 2px solid rgba(102, 187, 106, 0.3);
+  gap: 8px;
+}
+
+.schedule-column[data-category="imminent"] .schedule-column-header {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 193, 7, 0.15));
+  border-bottom-color: rgba(255, 152, 0, 0.4);
+}
+
+.schedule-column[data-category="delayed"] .schedule-column-header {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(229, 57, 53, 0.15));
+  border-bottom-color: rgba(244, 67, 54, 0.4);
+}
+
+.schedule-column[data-category="user-pushed"] .schedule-column-header {
+  background: linear-gradient(135deg, rgba(156, 39, 176, 0.2), rgba(142, 36, 170, 0.15));
+  border-bottom-color: rgba(156, 39, 176, 0.4);
+}
+
+.schedule-column-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--schemes-on-surface);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.schedule-column-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  background: rgba(102, 187, 106, 0.3);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--schemes-on-surface);
+}
+
+.schedule-column[data-category="imminent"] .schedule-column-count {
+  background: rgba(255, 152, 0, 0.4);
+}
+
+.schedule-column[data-category="delayed"] .schedule-column-count {
+  background: rgba(244, 67, 54, 0.4);
+}
+
+.schedule-column[data-category="user-pushed"] .schedule-column-count {
+  background: rgba(156, 39, 176, 0.4);
+}
+
+.schedule-column-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.schedule-column-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.schedule-column-content::-webkit-scrollbar-track {
+  background: rgba(102, 187, 106, 0.1);
+  border-radius: 3px;
+}
+
+.schedule-column-content::-webkit-scrollbar-thumb {
+  background: rgba(102, 187, 106, 0.4);
+  border-radius: 3px;
+}
+
+.schedule-column-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 187, 106, 0.6);
+}
+
+.schedule-empty-message {
+  text-align: center;
+  padding: 24px;
+  color: rgba(29, 27, 32, 0.5);
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* Schedule Card Status Styles */
+.schedule-card.schedule-imminent {
+  border-color: rgba(255, 152, 0, 0.5);
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 193, 7, 0.05));
+}
+
+.schedule-card.schedule-delayed {
+  border-color: rgba(244, 67, 54, 0.5);
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(229, 57, 53, 0.05));
+}
+
+.schedule-card.schedule-user-pushed {
+  border-color: rgba(156, 39, 176, 0.5);
+  background: linear-gradient(135deg, rgba(156, 39, 176, 0.1), rgba(142, 36, 170, 0.05));
+}
+
+.schedule-card.schedule-upcoming {
+  border-color: rgba(102, 187, 106, 0.4);
+}
+
+/* Legacy carousel styles - keeping for backward compatibility */
 .watering-schedule-carousel-container {
   display: flex;
   align-items: flex-start;
@@ -2697,6 +2855,8 @@
   overflow: hidden;
   box-sizing: border-box;
   min-height: 180px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .schedule-card::before {

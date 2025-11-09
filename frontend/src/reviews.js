@@ -39,46 +39,43 @@ const individualZoneSchedules = {
   ]
 };
 
-// Generate schedule cards HTML from zone data
-// This combines all individual zone schedules into one general schedule, sorted by time
-function generateScheduleCards() {
-  // Flatten all individual zone schedules into a single array with zone names
-  const allSchedules = [];
-  
-  Object.keys(individualZoneSchedules).forEach(zoneName => {
-    individualZoneSchedules[zoneName].forEach(schedule => {
-      allSchedules.push({
-        zone: zoneName,
-        scheduledTime: schedule.scheduledTime,
-        duration: schedule.duration
-      });
-    });
+// Generate schedule card HTML for a single schedule
+function generateScheduleCardHTML(schedule, index, category) {
+  const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
   });
   
-  // Sort by scheduled time (earliest first)
-  const sortedSchedule = allSchedules.sort((a, b) => {
-    return a.scheduledTime.getTime() - b.scheduledTime.getTime();
-  });
+  const timeUntilSeconds = Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000);
+  const timeUntilMinutes = Math.floor(timeUntilSeconds / 60);
   
-  return sortedSchedule.map((schedule, index) => {
-    const timeUntil = Math.max(0, Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000 / 60));
-    const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-    
-    const timeUntilSeconds = Math.max(0, Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000));
-    
-    return `
-    <div class="schedule-card" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}">
+  // Determine status badge based on category
+  let statusBadge = 'Upcoming';
+  let statusClass = '';
+  if (category === 'delayed') {
+    statusBadge = 'Delayed';
+    statusClass = 'schedule-delayed';
+  } else if (category === 'user-pushed') {
+    statusBadge = 'Pushed';
+    statusClass = 'schedule-user-pushed';
+  } else if (category === 'imminent') {
+    statusBadge = 'Imminent';
+    statusClass = 'schedule-imminent';
+  } else if (category === 'upcoming') {
+    statusBadge = 'Upcoming';
+    statusClass = 'schedule-upcoming';
+  }
+  
+  return `
+    <div class="schedule-card ${statusClass}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
       <div class="schedule-card-header">
         <label class="zone-disable-checkbox-label">
           <input type="checkbox" class="zone-disable-checkbox" data-zone="${schedule.zone}" checked>
           <span class="checkbox-custom"></span>
         </label>
         <span class="schedule-zone-name">${schedule.zone}</span>
-        <span class="schedule-status-badge">Upcoming</span>
+        <span class="schedule-status-badge">${statusBadge}</span>
       </div>
       <div class="schedule-card-content">
         <div class="schedule-time-display">
@@ -86,8 +83,8 @@ function generateScheduleCards() {
           <span class="schedule-time">${timeStr}</span>
         </div>
         <div class="schedule-countdown">
-          <span class="countdown-text">Scheduled in</span>
-          <span class="countdown-value" data-zone="${schedule.zone}">${timeUntilSeconds}s</span>
+          <span class="countdown-text">${timeUntilSeconds > 0 ? 'Scheduled in' : 'Overdue by'}</span>
+          <span class="countdown-value" data-zone="${schedule.zone}">${timeUntilSeconds > 0 ? `${timeUntilSeconds}s` : `${Math.abs(timeUntilSeconds)}s`}</span>
         </div>
         <div class="water-tube-container">
           <div class="water-tube">
@@ -101,7 +98,107 @@ function generateScheduleCards() {
       </div>
     </div>
   `;
-  }).join('');
+}
+
+// Generate schedule cards HTML from zone data, categorized into columns
+function generateScheduleCards() {
+  // Flatten all individual zone schedules into a single array with zone names
+  const allSchedules = [];
+  
+  Object.keys(individualZoneSchedules).forEach(zoneName => {
+    individualZoneSchedules[zoneName].forEach(schedule => {
+      allSchedules.push({
+        zone: zoneName,
+        scheduledTime: schedule.scheduledTime,
+        duration: schedule.duration,
+        delayed: schedule.delayed || false,
+        userPushed: schedule.userPushed || false
+      });
+    });
+  });
+  
+  const now = Date.now();
+  const FIVE_MINUTES_MS = 5 * 60 * 1000;
+  
+  // Categorize schedules
+  const categories = {
+    upcoming: [],      // > 5 minutes away
+    imminent: [],      // <= 5 minutes
+    delayed: [],       // Time passed but not completed/delayed
+    userPushed: []     // User-pushed for incomplete
+  };
+  
+  allSchedules.forEach((schedule, index) => {
+    const timeUntil = schedule.scheduledTime.getTime() - now;
+    const timeUntilMinutes = timeUntil / (60 * 1000);
+    
+    if (schedule.userPushed) {
+      categories.userPushed.push({ ...schedule, index, category: 'user-pushed' });
+    } else if (timeUntil < 0) {
+      // Time has passed
+      categories.delayed.push({ ...schedule, index, category: 'delayed' });
+    } else if (timeUntilMinutes <= 5) {
+      // <= 5 minutes
+      categories.imminent.push({ ...schedule, index, category: 'imminent' });
+    } else {
+      // > 5 minutes
+      categories.upcoming.push({ ...schedule, index, category: 'upcoming' });
+    }
+  });
+  
+  // Sort each category by scheduled time
+  Object.keys(categories).forEach(key => {
+    categories[key].sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime());
+  });
+  
+  // Generate HTML for each column
+  return `
+    <div class="schedule-columns-container">
+      <div class="schedule-column" data-category="upcoming">
+        <div class="schedule-column-header">
+          <h3 class="schedule-column-title">Upcoming</h3>
+          <span class="schedule-column-count">${categories.upcoming.length}</span>
+        </div>
+        <div class="schedule-column-content">
+          ${categories.upcoming.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'upcoming')).join('')}
+          ${categories.upcoming.length === 0 ? '<div class="schedule-empty-message">No upcoming schedules</div>' : ''}
+        </div>
+      </div>
+      
+      <div class="schedule-column" data-category="imminent">
+        <div class="schedule-column-header">
+          <h3 class="schedule-column-title">Imminent (≤5 min)</h3>
+          <span class="schedule-column-count">${categories.imminent.length}</span>
+        </div>
+        <div class="schedule-column-content">
+          ${categories.imminent.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'imminent')).join('')}
+          ${categories.imminent.length === 0 ? '<div class="schedule-empty-message">No imminent schedules</div>' : ''}
+        </div>
+      </div>
+      
+      <div class="schedule-column" data-category="delayed">
+        <div class="schedule-column-header">
+          <h3 class="schedule-column-title">Delayed</h3>
+          <span class="schedule-column-count">${categories.delayed.length}</span>
+        </div>
+        <div class="schedule-column-content">
+          ${categories.delayed.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'delayed')).join('')}
+          ${categories.delayed.length === 0 ? '<div class="schedule-empty-message">No delayed schedules</div>' : ''}
+        </div>
+      </div>
+      
+      <div class="schedule-column" data-category="user-pushed">
+        <div class="schedule-column-header">
+          <h3 class="schedule-column-title">User Pushed</h3>
+          <span class="schedule-column-count">${categories.userPushed.length}</span>
+        </div>
+        <div class="schedule-column-content">
+          ${categories.userPushed.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'user-pushed')).join('')}
+          ${categories.userPushed.length === 0 ? '<div class="schedule-empty-message">No user-pushed schedules</div>' : ''}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // Generate schedule cards HTML for a specific zone (individual zone schedule)
@@ -608,7 +705,7 @@ export function createReviewsComponent() {
             </button>
           </div>
 
-          <!-- Watering Schedule Carousel Section -->
+          <!-- Watering Schedule Columns Section -->
           <div class="watering-schedule-section">
             <div class="watering-schedule-header">
               <h2 class="watering-schedule-title">Watering Schedule</h2>
@@ -619,24 +716,8 @@ export function createReviewsComponent() {
                 <span class="halt-button-text">Halt All</span>
               </button>
             </div>
-            <div class="watering-schedule-carousel-container">
-              <button class="watering-carousel-arrow watering-carousel-arrow-left" aria-label="Previous Schedule">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M15 18l-6-6 6-6"/>
-                </svg>
-              </button>
-              
-              <div class="watering-carousel-wrapper">
-                <div class="watering-carousel" id="watering-carousel">
-                  ${generateScheduleCards()}
-                </div>
-              </div>
-              
-              <button class="watering-carousel-arrow watering-carousel-arrow-right" aria-label="Next Schedule">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M9 18l6-6-6-6"/>
-                </svg>
-              </button>
+            <div class="watering-schedule-columns-wrapper" id="watering-schedule-columns">
+              ${generateScheduleCards()}
             </div>
           </div>
 
