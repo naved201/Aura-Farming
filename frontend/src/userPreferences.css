@@ -265,6 +265,10 @@
   margin-bottom: 32px;
 }
 
+#database-zones-container {
+  display: contents;
+}
+
 @media (min-width: 768px) {
   .zones-list {
     grid-template-columns: repeat(4, 1fr);
@@ -501,6 +505,11 @@
   margin-top: 40px;
   position: relative;
   overflow: hidden;
+  display: none; /* Hidden by default */
+}
+
+.zone-config-form.show {
+  display: block;
   animation: fadeInUp 0.4s ease-out 0.3s both;
 }
 
@@ -651,6 +660,10 @@
   outline: none;
   border-color: #4caf50;
   background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.98));
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234caf50' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 20px center;
+  background-size: 12px;
   box-shadow: 
     0 0 0 5px rgba(76, 175, 80, 0.2),
     0 6px 20px rgba(76, 175, 80, 0.25),

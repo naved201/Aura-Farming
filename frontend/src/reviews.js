@@ -41,39 +41,65 @@ const individualZoneSchedules = {
 
 // Generate schedule card HTML for a single schedule
 function generateScheduleCardHTML(schedule, index, category) {
-  const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit',
-    hour12: true 
-  });
-  
+    const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
   const timeUntilSeconds = Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000);
   const timeUntilMinutes = Math.floor(timeUntilSeconds / 60);
   
-  // Determine status badge based on category
+  // Determine status badge and class based on category
   let statusBadge = 'Upcoming';
-  let statusClass = '';
+  let statusClass = 'schedule-upcoming';
+  
   if (category === 'delayed') {
-    statusBadge = 'Delayed';
+    statusBadge = 'Overdue';
     statusClass = 'schedule-delayed';
-  } else if (category === 'user-pushed') {
-    statusBadge = 'Pushed';
-    statusClass = 'schedule-user-pushed';
   } else if (category === 'imminent') {
-    statusBadge = 'Imminent';
+    statusBadge = 'Urgent';
     statusClass = 'schedule-imminent';
   } else if (category === 'upcoming') {
     statusBadge = 'Upcoming';
     statusClass = 'schedule-upcoming';
   }
   
-  return `
-    <div class="schedule-card ${statusClass}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
+  const showSelectionCheckbox = category === 'upcoming' || category === 'imminent';
+  const selectionCheckboxHTML = `
+          <label class="schedule-select-checkbox-label" aria-label="Select schedule">
+            <input type="checkbox" class="schedule-select-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
+            <span class="schedule-select-checkbox-custom"></span>
+          </label>
+        `;
+  
+  let leadingControls = '';
+  if (category === 'delayed') {
+    leadingControls = `
+        <div class="schedule-card-leading">
+          <label class="delayed-checkbox-label">
+            <input type="checkbox" class="delayed-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
+            <span class="delayed-checkbox-custom"></span>
+          </label>
+        </div>
+      `;
+  } else {
+    const indicatorHTML = category === 'imminent'
+      ? '<div class="schedule-drag-handle">⋮⋮</div>'
+      : '<div class="schedule-no-drag-indicator">📅</div>';
+      
+    leadingControls = `
+        <div class="schedule-card-leading">
+          ${showSelectionCheckbox ? selectionCheckboxHTML : ''}
+          ${indicatorHTML}
+        </div>
+      `;
+  }
+    
+    return `
+    <div class="schedule-card ${statusClass} ${category !== 'upcoming' ? 'draggable' : ''}" draggable="${category !== 'upcoming'}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
       <div class="schedule-card-header">
-        <label class="zone-disable-checkbox-label">
-          <input type="checkbox" class="zone-disable-checkbox" data-zone="${schedule.zone}" checked>
-          <span class="checkbox-custom"></span>
-        </label>
+        ${leadingControls}
         <span class="schedule-zone-name">${schedule.zone}</span>
         <span class="schedule-status-badge">${statusBadge}</span>
       </div>
@@ -110,9 +136,7 @@ function generateScheduleCards() {
       allSchedules.push({
         zone: zoneName,
         scheduledTime: schedule.scheduledTime,
-        duration: schedule.duration,
-        delayed: schedule.delayed || false,
-        userPushed: schedule.userPushed || false
+        duration: schedule.duration
       });
     });
   });
@@ -120,28 +144,25 @@ function generateScheduleCards() {
   const now = Date.now();
   const FIVE_MINUTES_MS = 5 * 60 * 1000;
   
-  // Categorize schedules
+  // Categorize schedules into 3 logical columns
   const categories = {
-    upcoming: [],      // > 5 minutes away
-    imminent: [],      // <= 5 minutes
-    delayed: [],       // Time passed but not completed/delayed
-    userPushed: []     // User-pushed for incomplete
+    upcoming: [],      // More than 5 minutes away
+    imminent: [],      // Within 5 minutes (urgent)
+    delayed: []        // Past scheduled time (overdue)
   };
   
   allSchedules.forEach((schedule, index) => {
     const timeUntil = schedule.scheduledTime.getTime() - now;
     const timeUntilMinutes = timeUntil / (60 * 1000);
     
-    if (schedule.userPushed) {
-      categories.userPushed.push({ ...schedule, index, category: 'user-pushed' });
-    } else if (timeUntil < 0) {
-      // Time has passed
+    if (timeUntil < 0) {
+      // Time has passed - overdue
       categories.delayed.push({ ...schedule, index, category: 'delayed' });
     } else if (timeUntilMinutes <= 5) {
-      // <= 5 minutes
+      // Within 5 minutes - urgent
       categories.imminent.push({ ...schedule, index, category: 'imminent' });
     } else {
-      // > 5 minutes
+      // More than 5 minutes away - upcoming
       categories.upcoming.push({ ...schedule, index, category: 'upcoming' });
     }
   });
@@ -156,45 +177,86 @@ function generateScheduleCards() {
     <div class="schedule-columns-container">
       <div class="schedule-column" data-category="upcoming">
         <div class="schedule-column-header">
-          <h3 class="schedule-column-title">Upcoming</h3>
-          <span class="schedule-column-count">${categories.upcoming.length}</span>
+          <div class="schedule-column-title-group">
+            <h3 class="schedule-column-title">Upcoming</h3>
+            <span class="schedule-column-count">${categories.upcoming.length}</span>
+          </div>
+          <div class="schedule-column-actions" data-column="upcoming">
+            <button class="schedule-select-all-btn" data-column="upcoming" aria-label="Select all upcoming schedules">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Select All</span>
+            </button>
+            <button class="schedule-watered-btn" data-column="upcoming" aria-label="Mark selected upcoming schedules as watered" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Watered</span>
+            </button>
+          </div>
         </div>
-        <div class="schedule-column-content">
+        <div class="schedule-column-content" data-drop-zone="upcoming">
           ${categories.upcoming.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'upcoming')).join('')}
-          ${categories.upcoming.length === 0 ? '<div class="schedule-empty-message">No upcoming schedules</div>' : ''}
+          ${categories.upcoming.length === 0 ? '<div class="schedule-empty-message">Drop cards here</div>' : ''}
         </div>
       </div>
       
       <div class="schedule-column" data-category="imminent">
         <div class="schedule-column-header">
-          <h3 class="schedule-column-title">Imminent (≤5 min)</h3>
-          <span class="schedule-column-count">${categories.imminent.length}</span>
+          <div class="schedule-column-title-group">
+            <h3 class="schedule-column-title">Imminent (≤5 min)</h3>
+            <span class="schedule-column-count">${categories.imminent.length}</span>
+          </div>
+          <div class="schedule-column-actions" data-column="imminent">
+            <button class="schedule-select-all-btn" data-column="imminent" aria-label="Select all imminent schedules">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Select All</span>
+            </button>
+            <button class="schedule-watered-btn" data-column="imminent" aria-label="Mark selected imminent schedules as watered" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Watered</span>
+            </button>
+          </div>
         </div>
-        <div class="schedule-column-content">
+        <div class="schedule-column-content" data-drop-zone="imminent">
           ${categories.imminent.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'imminent')).join('')}
-          ${categories.imminent.length === 0 ? '<div class="schedule-empty-message">No imminent schedules</div>' : ''}
+          ${categories.imminent.length === 0 ? '<div class="schedule-empty-message">Drop cards here</div>' : ''}
         </div>
       </div>
       
       <div class="schedule-column" data-category="delayed">
         <div class="schedule-column-header">
-          <h3 class="schedule-column-title">Delayed</h3>
-          <span class="schedule-column-count">${categories.delayed.length}</span>
+          <div class="schedule-column-title-group">
+            <h3 class="schedule-column-title">Delayed (Overdue)</h3>
+            <span class="schedule-column-count">${categories.delayed.length}</span>
+          </div>
+          <div class="delayed-actions">
+            <button class="delayed-select-all-btn" aria-label="Select All Delayed">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Select All</span>
+            </button>
+            <button class="delayed-delete-btn" aria-label="Delete Selected" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Delete</span>
+            </button>
+          </div>
         </div>
-        <div class="schedule-column-content">
+        <div class="schedule-column-content" data-drop-zone="delayed">
           ${categories.delayed.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'delayed')).join('')}
-          ${categories.delayed.length === 0 ? '<div class="schedule-empty-message">No delayed schedules</div>' : ''}
-        </div>
-      </div>
-      
-      <div class="schedule-column" data-category="user-pushed">
-        <div class="schedule-column-header">
-          <h3 class="schedule-column-title">User Pushed</h3>
-          <span class="schedule-column-count">${categories.userPushed.length}</span>
-        </div>
-        <div class="schedule-column-content">
-          ${categories.userPushed.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'user-pushed')).join('')}
-          ${categories.userPushed.length === 0 ? '<div class="schedule-empty-message">No user-pushed schedules</div>' : ''}
+          ${categories.delayed.length === 0 ? '<div class="schedule-empty-message">Drop cards here</div>' : ''}
         </div>
       </div>
     </div>
@@ -202,28 +264,142 @@ function generateScheduleCards() {
 }
 
 // Generate schedule cards HTML for a specific zone (individual zone schedule)
+// Uses the same column-based layout as the general schedule
 function generateZoneScheduleCards(zoneName) {
   const zoneSchedules = individualZoneSchedules[zoneName] || [];
   
-  // Sort by scheduled time (earliest first)
-  const sortedSchedule = [...zoneSchedules].sort((a, b) => {
-    return a.scheduledTime.getTime() - b.scheduledTime.getTime();
+  const now = Date.now();
+  const FIVE_MINUTES_MS = 5 * 60 * 1000;
+  
+  // Categorize schedules based on time
+  const categories = {
+    upcoming: [],      // > 5 minutes away
+    imminent: [],      // <= 5 minutes away but not yet started
+    delayed: []        // Time passed (overdue)
+  };
+  
+  zoneSchedules.forEach((schedule, index) => {
+    const timeUntil = schedule.scheduledTime.getTime() - now;
+    const timeUntilMinutes = timeUntil / (60 * 1000);
+    
+    const scheduleWithZone = {
+      zone: zoneName,
+      scheduledTime: schedule.scheduledTime,
+      duration: schedule.duration,
+      index
+    };
+    
+    if (timeUntil < 0) {
+      // Time has passed - overdue/delayed
+      categories.delayed.push({ ...scheduleWithZone, category: 'delayed' });
+    } else if (timeUntilMinutes <= 5) {
+      // <= 5 minutes away - imminent
+      categories.imminent.push({ ...scheduleWithZone, category: 'imminent' });
+    } else {
+      // > 5 minutes away - upcoming
+      categories.upcoming.push({ ...scheduleWithZone, category: 'upcoming' });
+    }
   });
   
-  return sortedSchedule.map((schedule, index) => {
-    const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-    
-    const timeUntilSeconds = Math.max(0, Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000));
-    
-    return `
-    <div class="zone-schedule-card" data-zone="${zoneName}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}">
+  // Sort each category by scheduled time
+  Object.keys(categories).forEach(key => {
+    categories[key].sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime());
+  });
+  
+  // Generate HTML for each column (same structure as general schedule)
+  return `
+    <div class="zone-schedule-columns-container">
+      <div class="zone-schedule-column" data-category="upcoming" data-zone="${zoneName}">
+        <div class="zone-schedule-column-header">
+          <div class="zone-schedule-column-title-group">
+            <h4 class="zone-schedule-column-title">Upcoming</h4>
+            <span class="zone-schedule-column-count">${categories.upcoming.length}</span>
+          </div>
+        </div>
+        <div class="zone-schedule-column-content" data-drop-zone="upcoming" data-zone="${zoneName}">
+          ${categories.upcoming.map((schedule, idx) => generateZoneScheduleCardHTML(schedule, idx, 'upcoming')).join('')}
+          ${categories.upcoming.length === 0 ? '<div class="zone-schedule-empty-message">Drop cards here</div>' : ''}
+        </div>
+      </div>
+      
+      <div class="zone-schedule-column" data-category="imminent" data-zone="${zoneName}">
+        <div class="zone-schedule-column-header">
+          <div class="zone-schedule-column-title-group">
+            <h4 class="zone-schedule-column-title">Imminent</h4>
+            <span class="zone-schedule-column-count">${categories.imminent.length}</span>
+          </div>
+        </div>
+        <div class="zone-schedule-column-content" data-drop-zone="imminent" data-zone="${zoneName}">
+          ${categories.imminent.map((schedule, idx) => generateZoneScheduleCardHTML(schedule, idx, 'imminent')).join('')}
+          ${categories.imminent.length === 0 ? '<div class="zone-schedule-empty-message">Drop cards here</div>' : ''}
+        </div>
+      </div>
+      
+      <div class="zone-schedule-column" data-category="delayed" data-zone="${zoneName}">
+        <div class="zone-schedule-column-header">
+          <div class="zone-schedule-column-title-group">
+            <h4 class="zone-schedule-column-title">Delayed</h4>
+            <span class="zone-schedule-column-count">${categories.delayed.length}</span>
+          </div>
+          <div class="zone-delayed-actions">
+            <button class="zone-delayed-select-all-btn" data-zone="${zoneName}" aria-label="Select All Delayed">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Select All</span>
+            </button>
+            <button class="zone-delayed-delete-btn" data-zone="${zoneName}" aria-label="Delete Selected" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Delete</span>
+            </button>
+          </div>
+        </div>
+        <div class="zone-schedule-column-content" data-drop-zone="delayed" data-zone="${zoneName}">
+          ${categories.delayed.map((schedule, idx) => generateZoneScheduleCardHTML(schedule, idx, 'delayed')).join('')}
+          ${categories.delayed.length === 0 ? '<div class="zone-schedule-empty-message">Drop cards here</div>' : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Generate individual card HTML for zone schedules
+function generateZoneScheduleCardHTML(schedule, index, category) {
+  const timeStr = schedule.scheduledTime.toLocaleTimeString('en-US', { 
+    hour: 'numeric', 
+    minute: '2-digit',
+    hour12: true 
+  });
+  
+  const timeUntilSeconds = Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000);
+  
+  // Determine status badge based on category
+  let statusBadge = 'Upcoming';
+  let statusClass = 'zone-schedule-upcoming';
+  
+  if (category === 'delayed') {
+    statusBadge = 'Overdue';
+    statusClass = 'zone-schedule-delayed';
+  } else if (category === 'imminent') {
+    statusBadge = 'Urgent';
+    statusClass = 'zone-schedule-imminent';
+  }
+  
+  return `
+    <div class="zone-schedule-card ${statusClass} ${category !== 'upcoming' ? 'draggable' : ''}" draggable="${category !== 'upcoming'}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
       <div class="zone-schedule-card-header">
+        ${category === 'delayed' ? `
+        <label class="zone-delayed-checkbox-label">
+          <input type="checkbox" class="zone-delayed-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
+          <span class="zone-delayed-checkbox-custom"></span>
+        </label>
+        ` : category === 'imminent' ? '<div class="zone-schedule-drag-handle">⋮⋮</div>' : '<div class="schedule-no-drag-indicator">📅</div>'}
         <span class="zone-schedule-time-label">${timeStr}</span>
-        <span class="zone-schedule-status-badge">UPCOMING</span>
+        <span class="zone-schedule-status-badge">${statusBadge}</span>
       </div>
       <div class="zone-schedule-card-content">
         <div class="zone-schedule-time-display">
@@ -231,12 +407,12 @@ function generateZoneScheduleCards(zoneName) {
           <span class="zone-schedule-time">${timeStr}</span>
         </div>
         <div class="zone-schedule-countdown">
-          <span class="zone-countdown-text">SCHEDULED IN</span>
-          <span class="zone-countdown-value" data-zone="${zoneName}">${timeUntilSeconds}s</span>
+          <span class="zone-countdown-text">${timeUntilSeconds > 0 ? 'SCHEDULED IN' : 'OVERDUE BY'}</span>
+          <span class="zone-countdown-value" data-zone="${schedule.zone}">${timeUntilSeconds > 0 ? `${timeUntilSeconds}s` : `${Math.abs(timeUntilSeconds)}s`}</span>
         </div>
         <div class="zone-water-tube-container">
           <div class="zone-water-tube">
-            <div class="zone-water-tube-fill" data-zone="${zoneName}" style="height: 0%;">
+            <div class="zone-water-tube-fill" data-zone="${schedule.zone}" style="height: 0%;">
               <div class="zone-water-wave"></div>
             </div>
             <div class="zone-water-tube-label">WATERING PROGRESS</div>
@@ -246,7 +422,6 @@ function generateZoneScheduleCards(zoneName) {
       </div>
     </div>
   `;
-  }).join('');
 }
 
 export function createReviewsComponent() {
@@ -279,422 +454,7 @@ export function createReviewsComponent() {
             
             <div class="zones-carousel-wrapper">
               <div class="zones-carousel" id="zones-carousel">
-                <!-- Zone 1 -->
-                <div class="zone-item-wrapper">
-                  <div class="zone-container">
-                    <div class="zone-header">
-                      <h3 class="zone-title">Zone 1</h3>
-                      <button class="update-button" aria-label="Update Zone 1">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                        </svg>
-                        <span>Update</span>
-                      </button>
-                    </div>
-                    <div class="zone-data-grid">
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Moisture level</h4>
-                        <div class="data-panel-content">
-                          <p class="data-value">--</p>
-                        </div>
-                      </div>
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Rainfall</h4>
-                        <div class="data-panel-content">
-                          <p class="data-value">--</p>
-                        </div>
-                      </div>
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Soil health</h4>
-                        <p class="data-panel-subtitle">(pertaining how long its wet for)</p>
-                        <div class="data-panel-content">
-                          <p class="data-value">--</p>
-                        </div>
-                      </div>
-                    </div>
-                    <button class="zone-graph-toggle" data-zone="1" aria-label="Toggle Zone 1 Graph">
-                      <span class="zone-graph-toggle-text">View Graph</span>
-                      <svg class="zone-graph-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                    <button class="zone-schedule-toggle" data-zone="1" aria-label="Toggle Zone 1 Schedule">
-                      <span class="zone-schedule-toggle-text">View Zone Schedule</span>
-                      <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="zone-graph-section" data-zone="1">
-                    <div class="zone-graph-section-inner">
-                      <div class="zone-graph-container">
-                        <canvas class="zone-moisture-graph" data-zone="1"></canvas>
-                        <div class="graph-axes">
-                          <div class="graph-y-axis">Moisture</div>
-                          <div class="graph-x-axis">Hours</div>
-                        </div>
-                      </div>
-                      <div class="graph-legend">
-                        <div class="legend-item">
-                          <span class="legend-line legend-line-black"></span>
-                          <span class="legend-text">~ moisture good <=> moisture medium</span>
-                        </div>
-                        <div class="legend-item">
-                          <span class="legend-line legend-line-blue"></span>
-                          <span class="legend-text">~ rainfall no <=> rainfall yes</span>
-                        </div>
-                        <div class="legend-item">
-                          <span class="legend-dot"></span>
-                          <span class="legend-text">~ no problem <=> yes plan : medium</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="zone-schedule-section" data-zone="1">
-                    <div class="zone-schedule-section-inner">
-                      <div class="zone-individual-schedule">
-                        <div class="zone-schedule-carousel-container">
-                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-left" data-zone="1" aria-label="Previous Schedule">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M15 18l-6-6 6-6"/>
-                            </svg>
-                          </button>
-                          
-                          <div class="zone-schedule-carousel-wrapper">
-                            <div class="zone-schedule-carousel" id="zone-1-schedule-carousel">
-                              ${generateZoneScheduleCards('Zone 1')}
-                            </div>
-                          </div>
-                          
-                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-right" data-zone="1" aria-label="Next Schedule">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M9 18l6-6-6-6"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Zone 2 -->
-                <div class="zone-item-wrapper">
-                  <div class="zone-container">
-                    <div class="zone-header">
-                      <div class="zone-title-group">
-                        <h3 class="zone-title">Zone 2</h3>
-                        <input type="checkbox" class="zone-checkbox" aria-label="Zone 2 checkbox">
-                      </div>
-                      <button class="update-button" aria-label="Update Zone 2">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                        </svg>
-                        <span>Update</span>
-                      </button>
-                    </div>
-                    <div class="zone-data-grid">
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Moisture level</h4>
-                        <div class="data-panel-content">
-                          <div class="moisture-status">
-                            <span class="status-item status-dry">dry → red</span>
-                            <span class="status-item status-wet">wet → yellow</span>
-                            <span class="status-item status-very">very → green</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Rainfall</h4>
-                        <div class="data-panel-content">
-                          <div class="rainfall-status">
-                            <span class="status-item">yes</span>
-                            <span class="status-item">no</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Soil health</h4>
-                        <p class="data-panel-subtitle">(pertaining how long its wet for)</p>
-                        <div class="data-panel-content">
-                          <div class="soil-health-indicator"></div>
-                          <p class="data-value">--</p>
-                        </div>
-                      </div>
-                    </div>
-                    <button class="zone-graph-toggle" data-zone="2" aria-label="Toggle Zone 2 Graph">
-                      <span class="zone-graph-toggle-text">View Graph</span>
-                      <svg class="zone-graph-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                    <button class="zone-schedule-toggle" data-zone="2" aria-label="Toggle Zone 2 Schedule">
-                      <span class="zone-schedule-toggle-text">View Zone Schedule</span>
-                      <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="zone-graph-section" data-zone="2">
-                    <div class="zone-graph-section-inner">
-                      <div class="zone-graph-container">
-                        <canvas class="zone-moisture-graph" data-zone="2"></canvas>
-                        <div class="graph-axes">
-                          <div class="graph-y-axis">Moisture</div>
-                          <div class="graph-x-axis">Hours</div>
-                        </div>
-                      </div>
-                      <div class="graph-legend">
-                        <div class="legend-item">
-                          <span class="legend-line legend-line-black"></span>
-                          <span class="legend-text">~ moisture good <=> moisture medium</span>
-                        </div>
-                        <div class="legend-item">
-                          <span class="legend-line legend-line-blue"></span>
-                          <span class="legend-text">~ rainfall no <=> rainfall yes</span>
-                        </div>
-                        <div class="legend-item">
-                          <span class="legend-dot"></span>
-                          <span class="legend-text">~ no problem <=> yes plan : medium</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="zone-schedule-section" data-zone="2">
-                    <div class="zone-schedule-section-inner">
-                      <div class="zone-individual-schedule">
-                        <div class="zone-schedule-carousel-container">
-                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-left" data-zone="2" aria-label="Previous Schedule">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M15 18l-6-6 6-6"/>
-                            </svg>
-                          </button>
-                          
-                          <div class="zone-schedule-carousel-wrapper">
-                            <div class="zone-schedule-carousel" id="zone-2-schedule-carousel">
-                              ${generateZoneScheduleCards('Zone 2')}
-                            </div>
-                          </div>
-                          
-                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-right" data-zone="2" aria-label="Next Schedule">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M9 18l6-6-6-6"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Zone 3 -->
-                <div class="zone-item-wrapper">
-                  <div class="zone-container">
-                    <div class="zone-header">
-                      <div class="zone-title-group">
-                        <h3 class="zone-title">Zone 3</h3>
-                        <input type="checkbox" class="zone-checkbox" aria-label="Zone 3 checkbox">
-                      </div>
-                      <button class="update-button" aria-label="Update Zone 3">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                        </svg>
-                        <span>Update</span>
-                      </button>
-                    </div>
-                    <div class="zone-data-grid">
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Moisture level</h4>
-                        <div class="data-panel-content">
-                          <p class="data-value">65%</p>
-                        </div>
-                      </div>
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Rainfall</h4>
-                        <div class="data-panel-content">
-                          <p class="data-value">Yes</p>
-                        </div>
-                      </div>
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Soil health</h4>
-                        <p class="data-panel-subtitle">(pertaining how long its wet for)</p>
-                        <div class="data-panel-content">
-                          <p class="data-value">Good</p>
-                        </div>
-                      </div>
-                    </div>
-                    <button class="zone-graph-toggle" data-zone="3" aria-label="Toggle Zone 3 Graph">
-                      <span class="zone-graph-toggle-text">View Graph</span>
-                      <svg class="zone-graph-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                    <button class="zone-schedule-toggle" data-zone="3" aria-label="Toggle Zone 3 Schedule">
-                      <span class="zone-schedule-toggle-text">View Zone Schedule</span>
-                      <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="zone-graph-section" data-zone="3">
-                    <div class="zone-graph-section-inner">
-                      <div class="zone-graph-container">
-                        <canvas class="zone-moisture-graph" data-zone="3"></canvas>
-                        <div class="graph-axes">
-                          <div class="graph-y-axis">Moisture</div>
-                          <div class="graph-x-axis">Hours</div>
-                        </div>
-                      </div>
-                      <div class="graph-legend">
-                        <div class="legend-item">
-                          <span class="legend-line legend-line-black"></span>
-                          <span class="legend-text">~ moisture good <=> moisture medium</span>
-                        </div>
-                        <div class="legend-item">
-                          <span class="legend-line legend-line-blue"></span>
-                          <span class="legend-text">~ rainfall no <=> rainfall yes</span>
-                        </div>
-                        <div class="legend-item">
-                          <span class="legend-dot"></span>
-                          <span class="legend-text">~ no problem <=> yes plan : medium</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="zone-schedule-section" data-zone="3">
-                    <div class="zone-schedule-section-inner">
-                      <div class="zone-individual-schedule">
-                        <div class="zone-schedule-carousel-container">
-                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-left" data-zone="3" aria-label="Previous Schedule">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M15 18l-6-6 6-6"/>
-                            </svg>
-                          </button>
-                          
-                          <div class="zone-schedule-carousel-wrapper">
-                            <div class="zone-schedule-carousel" id="zone-3-schedule-carousel">
-                              ${generateZoneScheduleCards('Zone 3')}
-                            </div>
-                          </div>
-                          
-                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-right" data-zone="3" aria-label="Next Schedule">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M9 18l6-6-6-6"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Zone 4 -->
-                <div class="zone-item-wrapper">
-                  <div class="zone-container">
-                    <div class="zone-header">
-                      <div class="zone-title-group">
-                        <h3 class="zone-title">Zone 4</h3>
-                        <input type="checkbox" class="zone-checkbox" aria-label="Zone 4 checkbox">
-                      </div>
-                      <button class="update-button" aria-label="Update Zone 4">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                        </svg>
-                        <span>Update</span>
-                      </button>
-                    </div>
-                    <div class="zone-data-grid">
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Moisture level</h4>
-                        <div class="data-panel-content">
-                          <div class="moisture-status">
-                            <span class="status-item status-dry">dry → red</span>
-                            <span class="status-item status-wet">wet → yellow</span>
-                            <span class="status-item status-very">very → green</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Rainfall</h4>
-                        <div class="data-panel-content">
-                          <div class="rainfall-status">
-                            <span class="status-item">yes</span>
-                            <span class="status-item">no</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div class="data-panel">
-                        <h4 class="data-panel-title">Soil health</h4>
-                        <p class="data-panel-subtitle">(pertaining how long its wet for)</p>
-                        <div class="data-panel-content">
-                          <div class="soil-health-indicator"></div>
-                          <p class="data-value">Excellent</p>
-                        </div>
-                      </div>
-                    </div>
-                    <button class="zone-graph-toggle" data-zone="4" aria-label="Toggle Zone 4 Graph">
-                      <span class="zone-graph-toggle-text">View Graph</span>
-                      <svg class="zone-graph-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                    <button class="zone-schedule-toggle" data-zone="4" aria-label="Toggle Zone 4 Schedule">
-                      <span class="zone-schedule-toggle-text">View Zone Schedule</span>
-                      <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
-                    </button>
-                  </div>
-                  <div class="zone-graph-section" data-zone="4">
-                    <div class="zone-graph-section-inner">
-                      <div class="zone-graph-container">
-                        <canvas class="zone-moisture-graph" data-zone="4"></canvas>
-                        <div class="graph-axes">
-                          <div class="graph-y-axis">Moisture</div>
-                          <div class="graph-x-axis">Hours</div>
-                        </div>
-                      </div>
-                      <div class="graph-legend">
-                        <div class="legend-item">
-                          <span class="legend-line legend-line-black"></span>
-                          <span class="legend-text">~ moisture good <=> moisture medium</span>
-                        </div>
-                        <div class="legend-item">
-                          <span class="legend-line legend-line-blue"></span>
-                          <span class="legend-text">~ rainfall no <=> rainfall yes</span>
-                        </div>
-                        <div class="legend-item">
-                          <span class="legend-dot"></span>
-                          <span class="legend-text">~ no problem <=> yes plan : medium</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="zone-schedule-section" data-zone="4">
-                    <div class="zone-schedule-section-inner">
-                      <div class="zone-individual-schedule">
-                        <div class="zone-schedule-carousel-container">
-                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-left" data-zone="4" aria-label="Previous Schedule">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M15 18l-6-6 6-6"/>
-                            </svg>
-                          </button>
-                          
-                          <div class="zone-schedule-carousel-wrapper">
-                            <div class="zone-schedule-carousel" id="zone-4-schedule-carousel">
-                              ${generateZoneScheduleCards('Zone 4')}
-                            </div>
-                          </div>
-                          
-                          <button class="zone-schedule-carousel-arrow zone-schedule-carousel-arrow-right" data-zone="4" aria-label="Next Schedule">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                              <path d="M9 18l6-6-6-6"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <!-- Zones will be dynamically loaded from database -->
               </div>
             </div>
             
@@ -708,7 +468,17 @@ export function createReviewsComponent() {
           <!-- Watering Schedule Columns Section -->
           <div class="watering-schedule-section">
             <div class="watering-schedule-header">
-              <h2 class="watering-schedule-title">Watering Schedule</h2>
+              <div class="watering-schedule-title-group">
+                <div class="watering-schedule-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                  </svg>
+                </div>
+                <div class="watering-schedule-title-text">
+                  <h2 class="watering-schedule-title">General Watering Schedule</h2>
+                  <p class="watering-schedule-subtitle">All zones unified schedule</p>
+                </div>
+              </div>
               <button class="halt-queue-button" id="halt-queue-btn" aria-label="Halt All Watering">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="6" y="6" width="12" height="12" rx="2"/>
@@ -717,7 +487,7 @@ export function createReviewsComponent() {
               </button>
             </div>
             <div class="watering-schedule-columns-wrapper" id="watering-schedule-columns">
-              ${generateScheduleCards()}
+                  ${generateScheduleCards()}
             </div>
           </div>
 

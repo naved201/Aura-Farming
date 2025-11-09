@@ -2017,6 +2017,305 @@
   width: 100%;
 }
 
+/* Zone Schedule Columns (Individual Zone) - Same layout as general schedule but scaled for zone dropdown */
+.zone-schedule-columns-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.zone-schedule-column {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 2px solid rgba(102, 187, 106, 0.2);
+  overflow: hidden;
+  min-height: 150px;
+  max-height: 400px;
+  box-sizing: border-box;
+}
+
+.zone-schedule-column[data-category="imminent"] {
+  border-color: rgba(255, 152, 0, 0.4);
+  background: rgba(255, 152, 0, 0.05);
+}
+
+.zone-schedule-column[data-category="delayed"] {
+  border-color: rgba(244, 67, 54, 0.4);
+  background: rgba(244, 67, 54, 0.05);
+}
+
+.zone-schedule-column-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(102, 187, 106, 0.15), rgba(76, 175, 80, 0.1));
+  border-bottom: 2px solid rgba(102, 187, 106, 0.3);
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.zone-schedule-column[data-category="imminent"] .zone-schedule-column-header {
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.2), rgba(255, 193, 7, 0.15));
+  border-bottom-color: rgba(255, 152, 0, 0.4);
+}
+
+.zone-schedule-column[data-category="delayed"] .zone-schedule-column-header {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(229, 57, 53, 0.15));
+  border-bottom-color: rgba(244, 67, 54, 0.4);
+}
+
+.zone-schedule-column-title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zone-schedule-column-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--schemes-on-surface);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.zone-schedule-column-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: rgba(102, 187, 106, 0.3);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--schemes-on-surface);
+}
+
+.zone-schedule-column[data-category="imminent"] .zone-schedule-column-count {
+  background: rgba(255, 152, 0, 0.4);
+}
+
+.zone-schedule-column[data-category="delayed"] .zone-schedule-column-count {
+  background: rgba(244, 67, 54, 0.4);
+}
+
+.zone-schedule-column-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zone-schedule-column-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.zone-schedule-column-content::-webkit-scrollbar-track {
+  background: rgba(102, 187, 106, 0.1);
+  border-radius: 2px;
+}
+
+.zone-schedule-column-content::-webkit-scrollbar-thumb {
+  background: rgba(102, 187, 106, 0.4);
+  border-radius: 2px;
+}
+
+.zone-schedule-column-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 187, 106, 0.6);
+}
+
+.zone-schedule-empty-message {
+  text-align: center;
+  padding: 16px;
+  color: rgba(29, 27, 32, 0.5);
+  font-size: 11px;
+  font-style: italic;
+}
+
+/* Zone delayed actions */
+.zone-delayed-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.zone-delayed-select-all-btn,
+.zone-delayed-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  background: rgba(244, 67, 54, 0.1);
+  color: rgba(29, 27, 32, 0.8);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zone-delayed-select-all-btn {
+  border-color: rgba(102, 187, 106, 0.4);
+  background: rgba(102, 187, 106, 0.1);
+}
+
+.zone-delayed-select-all-btn:hover {
+  background: rgba(102, 187, 106, 0.2);
+  border-color: rgba(102, 187, 106, 0.6);
+  transform: translateY(-1px);
+}
+
+.zone-delayed-delete-btn:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.6);
+  transform: translateY(-1px);
+}
+
+.zone-delayed-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.zone-delayed-select-all-btn svg,
+.zone-delayed-delete-btn svg {
+  flex-shrink: 0;
+}
+
+/* Zone delayed checkbox styles */
+.zone-delayed-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.zone-delayed-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.zone-delayed-checkbox-custom {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(244, 67, 54, 0.6);
+  border-radius: 3px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.zone-delayed-checkbox:checked + .zone-delayed-checkbox-custom {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.9), rgba(229, 57, 53, 0.9));
+  border-color: rgba(244, 67, 54, 0.8);
+}
+
+.zone-delayed-checkbox:checked + .zone-delayed-checkbox-custom::after {
+  content: '✓';
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.zone-delayed-checkbox-label:hover .zone-delayed-checkbox-custom {
+  border-color: rgba(244, 67, 54, 0.8);
+  transform: scale(1.05);
+}
+
+/* Zone schedule drag handle */
+.zone-schedule-drag-handle {
+  cursor: grab;
+  color: rgba(29, 27, 32, 0.4);
+  font-size: 12px;
+  line-height: 1;
+  user-select: none;
+  padding: 2px;
+  transition: color 0.2s ease;
+}
+
+.zone-schedule-drag-handle:active {
+  cursor: grabbing;
+}
+
+.zone-schedule-card:hover .zone-schedule-drag-handle {
+  color: rgba(29, 27, 32, 0.6);
+}
+
+/* Zone schedule card states for categories */
+.zone-schedule-card.zone-schedule-imminent {
+  border-color: rgba(255, 152, 0, 0.5);
+  background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 193, 7, 0.05));
+}
+
+.zone-schedule-card.zone-schedule-delayed {
+  border-color: rgba(244, 67, 54, 0.5);
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(229, 57, 53, 0.05));
+}
+
+.zone-schedule-card.zone-schedule-upcoming {
+  border-color: rgba(102, 187, 106, 0.4);
+}
+
+/* Zone schedule dragging states */
+.zone-schedule-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+  cursor: grabbing;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.zone-schedule-column-content.drag-over {
+  background: rgba(102, 187, 106, 0.1);
+  border: 2px dashed rgba(102, 187, 106, 0.5);
+  border-radius: 6px;
+  min-height: 80px;
+}
+
+.zone-schedule-column[data-category="imminent"] .zone-schedule-column-content.drag-over {
+  background: rgba(255, 152, 0, 0.1);
+  border-color: rgba(255, 152, 0, 0.5);
+}
+
+.zone-schedule-column[data-category="delayed"] .zone-schedule-column-content.drag-over {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: rgba(244, 67, 54, 0.5);
+}
+
+/* Upcoming zone column cannot be a drop target */
+.zone-schedule-column[data-category="upcoming"] .zone-schedule-column-content.drag-over {
+  background: rgba(158, 158, 158, 0.05);
+  border: 2px dashed rgba(158, 158, 158, 0.3);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Zone schedule cards that are not draggable */
+.zone-schedule-card:not(.draggable) {
+  cursor: default;
+}
+
+.zone-schedule-card:not(.draggable):hover {
+  transform: none;
+}
+
 .zone-schedule-carousel-container {
   display: flex;
   align-items: flex-start;
@@ -2542,12 +2841,52 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
   gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, 
+    rgba(102, 187, 106, 0.08), 
+    rgba(76, 175, 80, 0.05));
+  border-radius: 12px;
+  border: 2px solid rgba(102, 187, 106, 0.2);
+  box-shadow: 0 2px 8px rgba(27, 94, 32, 0.1);
+}
+
+.watering-schedule-title-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.watering-schedule-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, rgba(102, 187, 106, 0.2), rgba(76, 175, 80, 0.15));
+  border-radius: 12px;
+  border: 2px solid rgba(102, 187, 106, 0.3);
+  flex-shrink: 0;
+  box-shadow: 
+    0 2px 8px rgba(27, 94, 32, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.watering-schedule-icon svg {
+  stroke: #2e7d32;
+  filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
+}
+
+.watering-schedule-title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .watering-schedule-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   background: linear-gradient(135deg, #2e7d32, #4caf50, #66bb6a);
   -webkit-background-clip: text;
@@ -2557,7 +2896,16 @@
   text-align: left;
   letter-spacing: 0.5px;
   padding: 0;
-  flex: 1;
+  line-height: 1.2;
+}
+
+.watering-schedule-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(29, 27, 32, 0.6);
+  margin: 0;
+  padding: 0;
+  letter-spacing: 0.3px;
 }
 
 .halt-queue-button {
@@ -2614,7 +2962,7 @@
 
 .schedule-columns-container {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   width: 100%;
   box-sizing: border-box;
@@ -2642,10 +2990,6 @@
   background: rgba(244, 67, 54, 0.05);
 }
 
-.schedule-column[data-category="user-pushed"] {
-  border-color: rgba(156, 39, 176, 0.4);
-  background: rgba(156, 39, 176, 0.05);
-}
 
 .schedule-column-header {
   display: flex;
@@ -2654,6 +2998,13 @@
   padding: 12px 16px;
   background: linear-gradient(135deg, rgba(102, 187, 106, 0.15), rgba(76, 175, 80, 0.1));
   border-bottom: 2px solid rgba(102, 187, 106, 0.3);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.schedule-column-title-group {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -2667,10 +3018,6 @@
   border-bottom-color: rgba(244, 67, 54, 0.4);
 }
 
-.schedule-column[data-category="user-pushed"] .schedule-column-header {
-  background: linear-gradient(135deg, rgba(156, 39, 176, 0.2), rgba(142, 36, 170, 0.15));
-  border-bottom-color: rgba(156, 39, 176, 0.4);
-}
 
 .schedule-column-title {
   font-size: 16px;
@@ -2703,9 +3050,6 @@
   background: rgba(244, 67, 54, 0.4);
 }
 
-.schedule-column[data-category="user-pushed"] .schedule-column-count {
-  background: rgba(156, 39, 176, 0.4);
-}
 
 .schedule-column-content {
   flex: 1;
@@ -2735,6 +3079,197 @@
   background: rgba(102, 187, 106, 0.6);
 }
 
+/* Delayed column actions */
+.delayed-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Column selection controls for Upcoming & Imminent */
+.schedule-column-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-select-all-btn,
+.schedule-watered-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(102, 187, 106, 0.35);
+  background: rgba(102, 187, 106, 0.12);
+  color: rgba(29, 27, 32, 0.8);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.schedule-select-all-btn:hover,
+.schedule-watered-btn:hover:not(:disabled) {
+  background: rgba(102, 187, 106, 0.2);
+  border-color: rgba(102, 187, 106, 0.55);
+  transform: translateY(-1px);
+}
+
+.schedule-watered-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.schedule-select-all-btn svg,
+.schedule-watered-btn svg {
+  flex-shrink: 0;
+}
+
+.schedule-card-leading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-select-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.schedule-column.selection-active .schedule-select-checkbox-label {
+  display: flex;
+}
+
+.schedule-select-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.schedule-select-checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(102, 187, 106, 0.6);
+  border-radius: 4px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.schedule-select-checkbox:checked + .schedule-select-checkbox-custom {
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.95), rgba(76, 175, 80, 0.95));
+  border-color: rgba(46, 125, 50, 0.9);
+}
+
+.schedule-select-checkbox:checked + .schedule-select-checkbox-custom::after {
+  content: '✓';
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.schedule-select-checkbox-label:hover .schedule-select-checkbox-custom {
+  border-color: rgba(46, 125, 50, 0.9);
+  transform: scale(1.05);
+}
+
+.delayed-select-all-btn,
+.delayed-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  background: rgba(244, 67, 54, 0.1);
+  color: rgba(29, 27, 32, 0.8);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delayed-select-all-btn {
+  border-color: rgba(102, 187, 106, 0.4);
+  background: rgba(102, 187, 106, 0.1);
+}
+
+.delayed-select-all-btn:hover {
+  background: rgba(102, 187, 106, 0.2);
+  border-color: rgba(102, 187, 106, 0.6);
+  transform: translateY(-1px);
+}
+
+.delayed-delete-btn:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.6);
+  transform: translateY(-1px);
+}
+
+.delayed-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.delayed-select-all-btn svg,
+.delayed-delete-btn svg {
+  flex-shrink: 0;
+}
+
+/* Delayed checkbox styles */
+.delayed-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.delayed-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.delayed-checkbox-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(244, 67, 54, 0.6);
+  border-radius: 4px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.delayed-checkbox:checked + .delayed-checkbox-custom {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.9), rgba(229, 57, 53, 0.9));
+  border-color: rgba(244, 67, 54, 0.8);
+}
+
+.delayed-checkbox:checked + .delayed-checkbox-custom::after {
+  content: '✓';
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.delayed-checkbox-label:hover .delayed-checkbox-custom {
+  border-color: rgba(244, 67, 54, 0.8);
+  transform: scale(1.05);
+}
+
 .schedule-empty-message {
   text-align: center;
   padding: 24px;
@@ -2754,10 +3289,6 @@
   background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(229, 57, 53, 0.05));
 }
 
-.schedule-card.schedule-user-pushed {
-  border-color: rgba(156, 39, 176, 0.5);
-  background: linear-gradient(135deg, rgba(156, 39, 176, 0.1), rgba(142, 36, 170, 0.05));
-}
 
 .schedule-card.schedule-upcoming {
   border-color: rgba(102, 187, 106, 0.4);
@@ -2891,6 +3422,79 @@
   border-bottom: 2px solid rgba(102, 187, 106, 0.2);
   gap: 12px;
 }
+
+/* Drag handle */
+.schedule-drag-handle {
+  cursor: grab;
+  color: rgba(29, 27, 32, 0.4);
+  font-size: 16px;
+  line-height: 1;
+  user-select: none;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.schedule-drag-handle:active {
+  cursor: grabbing;
+}
+
+.schedule-card:hover .schedule-drag-handle {
+  color: rgba(29, 27, 32, 0.6);
+}
+
+/* No drag indicator for upcoming cards */
+.schedule-no-drag-indicator {
+  color: rgba(102, 187, 106, 0.6);
+  font-size: 16px;
+  line-height: 1;
+  user-select: none;
+  padding: 4px;
+  cursor: default;
+}
+
+.schedule-card:not(.draggable) {
+  cursor: default;
+}
+
+.schedule-card:not(.draggable):hover {
+  transform: none;
+}
+
+/* Dragging state */
+.schedule-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+  cursor: grabbing;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Drop zone states */
+.schedule-column-content.drag-over {
+  background: rgba(102, 187, 106, 0.1);
+  border: 2px dashed rgba(102, 187, 106, 0.5);
+  border-radius: 8px;
+  min-height: 100px;
+}
+
+.schedule-column[data-category="imminent"] .schedule-column-content.drag-over {
+  background: rgba(255, 152, 0, 0.1);
+  border-color: rgba(255, 152, 0, 0.5);
+}
+
+.schedule-column[data-category="delayed"] .schedule-column-content.drag-over {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: rgba(244, 67, 54, 0.5);
+}
+
+/* Upcoming column cannot be a drop target */
+.schedule-column[data-category="upcoming"] .schedule-column-content.drag-over {
+  background: rgba(158, 158, 158, 0.05);
+  border: 2px dashed rgba(158, 158, 158, 0.3);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 
 .zone-disable-checkbox-label {
   display: flex;

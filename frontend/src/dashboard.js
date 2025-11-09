@@ -1,134 +1,311 @@
-import { getAllZonesTelemetry, subscribeToAllZonesTelemetry } from './telemetry.js';
+import { supabase } from './config.js';
+import { getCurrentUser } from './auth.js';
+
+let scheduleCategorizationIntervalId = null;
+const removedScheduleKeys = new Set();
+
+function buildScheduleKey(zone, scheduledTime) {
+  return `${zone}::${scheduledTime}`;
+}
+
+function markScheduleRemoved(zone, scheduledTime) {
+  if (!zone || !scheduledTime) return;
+  removedScheduleKeys.add(buildScheduleKey(zone, scheduledTime));
+}
+
+function isScheduleRemoved(zone, scheduledTime) {
+  if (!zone || !scheduledTime) return false;
+  return removedScheduleKeys.has(buildScheduleKey(zone, scheduledTime));
+}
+
+function cleanupRemovedSchedule(zone, scheduledTime) {
+  if (!zone || !scheduledTime) return;
+  const key = buildScheduleKey(zone, scheduledTime);
+  const stillExists = Array.from(document.querySelectorAll('[data-zone][data-scheduled-time]')).some(el => {
+    return el.getAttribute('data-zone') === zone && el.getAttribute('data-scheduled-time') === scheduledTime;
+  });
+  if (!stillExists) {
+    removedScheduleKeys.delete(key);
+  }
+}
 
 export function setupDashboard() {
-  // Setup zones carousel
-  setupZonesCarousel();
-  
-  // Setup watering schedule columns
-  setupWateringScheduleColumns();
-  
-  // Setup update buttons
-  const updateButtons = document.querySelectorAll('.update-button');
-  updateButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const zoneContainer = btn.closest('.zone-container');
-      const zoneTitle = zoneContainer?.querySelector('.zone-title')?.textContent || 'Zone';
-      alert(`Updating ${zoneTitle}...`);
-      // Add actual update logic here
+  // Load zones from database and render them
+  loadAndRenderZones().then(() => {
+    // Setup zones carousel after zones are loaded
+    setupZonesCarousel();
+    
+    // Setup watering schedule columns
+    setupWateringScheduleColumns();
+    
+    // Load telemetry data for all zones
+    loadZoneTelemetryData();
+    
+    // Setup update buttons
+    const updateButtons = document.querySelectorAll('.update-button');
+    updateButtons.forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const zoneContainer = btn.closest('.zone-container');
+        const zoneTitle = zoneContainer?.querySelector('.zone-title')?.textContent || 'Zone';
+        // Refresh telemetry data when update button is clicked
+        await loadZoneTelemetryData();
+        alert(`${zoneTitle} updated!`);
+      });
     });
-  });
 
-  // Setup zone graph toggles
-  setupZoneGraphToggles();
-  
-  // Setup zone schedule toggles
-  setupZoneScheduleToggles();
-  
-  // Load and display real-time telemetry data
-  loadTelemetryData();
-  
-  // Subscribe to real-time updates
-  subscribeToTelemetryUpdates();
+    // Setup zone graph toggles
+    setupZoneGraphToggles();
+    
+    // Setup zone schedule toggles
+    setupZoneScheduleToggles();
+  });
 }
 
-// Load initial telemetry data for all zones
-async function loadTelemetryData() {
+/**
+ * Load zones from database and render them dynamically
+ */
+async function loadAndRenderZones() {
   try {
-    const telemetryData = await getAllZonesTelemetry(1);
-    updateDashboardWithTelemetry(telemetryData);
-  } catch (err) {
-    console.error('Error loading telemetry data:', err);
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
+      console.warn('User not authenticated, cannot load zones');
+      return;
+    }
+
+    // Get all zones for the current user
+    const { data: zones, error: zonesError } = await supabase
+      .from('zones')
+      .select('id, name')
+      .eq('owner', user.id)
+      .order('created_at', { ascending: true });
+
+    if (zonesError) {
+      console.error('Error fetching zones:', zonesError);
+      return;
+    }
+
+    if (!zones || zones.length === 0) {
+      console.log('No zones found for user');
+      const carousel = document.getElementById('zones-carousel');
+      if (carousel) {
+        carousel.innerHTML = '<div class="no-zones-message" style="padding: 40px; text-align: center; color: #666;">No zones configured yet. Create a zone in User Preferences.</div>';
+      }
+      return;
+    }
+
+    // Get the carousel container
+    const carousel = document.getElementById('zones-carousel');
+    if (!carousel) {
+      console.error('Zones carousel not found');
+      return;
+    }
+
+    // Clear existing zones
+    carousel.innerHTML = '';
+
+    // Generate HTML for each zone
+    zones.forEach((zone, index) => {
+      const zoneHTML = generateZoneHTML(zone, index + 1);
+      carousel.insertAdjacentHTML('beforeend', zoneHTML);
+    });
+
+    console.log(`✅ Loaded ${zones.length} zones from database`);
+  } catch (error) {
+    console.error('Error in loadAndRenderZones:', error);
   }
 }
 
-// Subscribe to real-time telemetry updates
-function subscribeToTelemetryUpdates() {
-  subscribeToAllZonesTelemetry((zoneId, telemetryData) => {
-    console.log('New telemetry data received:', zoneId, telemetryData);
-    // Update the specific zone's display
-    updateZoneTelemetry(zoneId, telemetryData);
-  });
+/**
+ * Generate HTML for a single zone
+ */
+function generateZoneHTML(zone, index) {
+  const zoneId = zone.id;
+  const zoneName = zone.name;
+  
+  return `
+    <div class="zone-item-wrapper" data-zone-id="${zoneId}">
+      <div class="zone-container">
+        <div class="zone-header">
+          <h3 class="zone-title">${zoneName}</h3>
+          <button class="update-button" aria-label="Update ${zoneName}">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+            </svg>
+            <span>Update</span>
+          </button>
+        </div>
+        <div class="zone-data-grid">
+          <div class="data-panel">
+            <h4 class="data-panel-title">Moisture level</h4>
+            <div class="data-panel-content">
+              <p class="data-value">--</p>
+            </div>
+          </div>
+          <div class="data-panel">
+            <h4 class="data-panel-title">Rainfall</h4>
+            <div class="data-panel-content">
+              <p class="data-value">--</p>
+            </div>
+          </div>
+          <div class="data-panel">
+            <h4 class="data-panel-title">Soil health</h4>
+            <p class="data-panel-subtitle">(pertaining how long its wet for)</p>
+            <div class="data-panel-content">
+              <p class="data-value">--</p>
+            </div>
+          </div>
+        </div>
+        <button class="zone-graph-toggle" data-zone-id="${zoneId}" aria-label="Toggle ${zoneName} Graph">
+          <span class="zone-graph-toggle-text">View Graph</span>
+          <svg class="zone-graph-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+        <button class="zone-schedule-toggle" data-zone-id="${zoneId}" aria-label="Toggle ${zoneName} Schedule">
+          <span class="zone-schedule-toggle-text">View Zone Schedule</span>
+          <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+      <div class="zone-graph-section" data-zone-id="${zoneId}">
+        <div class="zone-graph-section-inner">
+          <div class="zone-graph-container">
+            <canvas class="zone-moisture-graph" data-zone-id="${zoneId}"></canvas>
+            <div class="graph-axes">
+              <div class="graph-y-axis">Moisture</div>
+              <div class="graph-x-axis">Hours</div>
+            </div>
+          </div>
+          <div class="graph-legend">
+            <div class="legend-item">
+              <span class="legend-line legend-line-black"></span>
+              <span class="legend-text">~ moisture good <=> moisture medium</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line legend-line-blue"></span>
+              <span class="legend-text">~ rainfall no <=> rainfall yes</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot"></span>
+              <span class="legend-text">~ no problem <=> yes plan : medium</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="zone-schedule-section" data-zone-id="${zoneId}">
+        <div class="zone-schedule-section-inner">
+          <div class="zone-individual-schedule" id="zone-${zoneId}-schedule-columns">
+            <!-- Schedule cards will be generated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
-// Update dashboard with telemetry data
-function updateDashboardWithTelemetry(telemetryData) {
-  // Update each zone's display
-  Object.keys(telemetryData).forEach(zoneId => {
-    const latest = telemetryData[zoneId][0];
-    if (latest) {
-      updateZoneTelemetry(zoneId, latest);
+/**
+ * Load telemetry data for zones and update the dashboard
+ */
+async function loadZoneTelemetryData() {
+  try {
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
+      console.warn('User not authenticated, cannot load telemetry data');
+      return;
+    }
+
+    // Get all zones for the current user
+    const { data: zones, error: zonesError } = await supabase
+      .from('zones')
+      .select('id, name')
+      .eq('owner', user.id);
+
+    if (zonesError) {
+      console.error('Error fetching zones:', zonesError);
+      return;
+    }
+
+    if (!zones || zones.length === 0) {
+      console.log('No zones found for user');
+      return;
+    }
+
+    // For each zone, get the latest telemetry data
+    for (const zone of zones) {
+      // Get latest telemetry for this zone
+      const { data: telemetry, error: telemetryError } = await supabase
+        .from('telemetry')
+        .select('moisture, rain')
+        .eq('zone_id', zone.id)
+        .order('ts', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (telemetryError) {
+        console.error(`Error fetching telemetry for zone ${zone.name}:`, telemetryError);
+        continue;
+      }
+
+      if (!telemetry) {
+        console.log(`No telemetry data found for zone ${zone.name}`);
+        continue;
+      }
+
+      // Find the zone container in the DOM by zone_id
+      const zoneWrapper = document.querySelector(`.zone-item-wrapper[data-zone-id="${zone.id}"]`);
+      
+      if (zoneWrapper) {
+        updateZoneDisplay(zoneWrapper, telemetry);
+      } else {
+        console.log(`Could not find zone element for zone ${zone.name} (${zone.id})`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in loadZoneTelemetryData:', error);
+  }
+}
+
+/**
+ * Update zone display with telemetry data
+ */
+function updateZoneDisplay(zoneWrapper, telemetry) {
+  if (!zoneWrapper) return;
+
+  // Find moisture level panel
+  const moisturePanel = zoneWrapper.querySelector('.data-panel-title');
+  let moistureValueElement = null;
+  
+  // Find the moisture value element
+  const dataPanels = zoneWrapper.querySelectorAll('.data-panel');
+  dataPanels.forEach(panel => {
+    const title = panel.querySelector('.data-panel-title');
+    if (title && title.textContent.trim() === 'Moisture level') {
+      moistureValueElement = panel.querySelector('.data-value');
     }
   });
-}
 
-// Update a specific zone's telemetry display
-function updateZoneTelemetry(zoneId, telemetry) {
-  // Find zone card by zone ID (you may need to add data-zone-id attribute to zone cards)
-  const zoneCards = document.querySelectorAll('.zone-card, .zone-item-wrapper');
-  
-  zoneCards.forEach(card => {
-    // Try to match by zone ID if data attribute exists
-    const cardZoneId = card.getAttribute('data-zone-id');
-    if (cardZoneId === zoneId) {
-      updateZoneCard(card, telemetry);
+  // Update moisture level
+  if (moistureValueElement && telemetry.moisture !== null && telemetry.moisture !== undefined) {
+    moistureValueElement.textContent = `${telemetry.moisture.toFixed(1)}%`;
+  }
+
+  // Find rainfall panel
+  let rainfallValueElement = null;
+  dataPanels.forEach(panel => {
+    const title = panel.querySelector('.data-panel-title');
+    if (title && title.textContent.trim() === 'Rainfall') {
+      rainfallValueElement = panel.querySelector('.data-value');
     }
   });
-  
-  // Also try to update by zone name/number if zone ID matching doesn't work
-  // This is a fallback for existing zone cards that may not have zone IDs
-  updateZoneCardsByIndex(telemetry);
-}
 
-// Update zone card with telemetry data
-function updateZoneCard(card, telemetry) {
-  // Update moisture display
-  const moistureEl = card.querySelector('.moisture-value, .zone-moisture-value');
-  if (moistureEl && telemetry.moisture !== null && telemetry.moisture !== undefined) {
-    moistureEl.textContent = `${telemetry.moisture.toFixed(1)}%`;
-  }
-  
-  // Update rainfall display (rain is boolean: 0 = false, 1 = true)
-  const rainEl = card.querySelector('.rain-value, .zone-rain-value');
-  if (rainEl && telemetry.rain !== null && telemetry.rain !== undefined) {
-    const isRaining = telemetry.rain === 1 || telemetry.rain === true;
-    rainEl.textContent = isRaining ? 'Yes' : 'No';
-    // Optionally add a class for styling
-    rainEl.classList.toggle('raining', isRaining);
-    rainEl.classList.toggle('not-raining', !isRaining);
-  }
-  
-  // Update status (dry, moist, wet)
-  const statusEl = card.querySelector('.status-value, .zone-status-value');
-  if (statusEl && telemetry.status) {
-    statusEl.textContent = telemetry.status.charAt(0).toUpperCase() + telemetry.status.slice(1);
-    // Add status class for styling
-    statusEl.className = statusEl.className.replace(/\bstatus-(dry|moist|wet)\b/g, '');
-    statusEl.classList.add(`status-${telemetry.status}`);
-  }
-  
-  // Update timestamp
-  const timestampEl = card.querySelector('.timestamp-value, .zone-timestamp-value');
-  if (timestampEl && telemetry.ts) {
-    const date = new Date(telemetry.ts);
-    timestampEl.textContent = date.toLocaleTimeString();
-  }
-  
-  console.log('Updated zone card with telemetry:', {
-    moisture: telemetry.moisture,
-    rain: telemetry.rain,
-    status: telemetry.status,
-    timestamp: telemetry.ts
-  });
-}
-
-// Fallback: Update zone cards by index (for demo zones)
-function updateZoneCardsByIndex(telemetry) {
-  // This is a fallback method - update the first zone card found
-  // In production, you should properly map zone IDs to zone cards
-  const firstZoneCard = document.querySelector('.zone-card, .zone-item-wrapper');
-  if (firstZoneCard) {
-    updateZoneCard(firstZoneCard, telemetry);
+  // Update rainfall
+  if (rainfallValueElement && telemetry.rain !== null && telemetry.rain !== undefined) {
+    // rain is boolean, display "Yes" or "No"
+    rainfallValueElement.textContent = telemetry.rain ? 'Yes' : 'No';
   }
 }
 
@@ -291,37 +468,211 @@ function setupWateringScheduleColumns() {
   
   // Setup dynamic categorization update
   setupScheduleCategorization();
+  
+  // Setup drag and drop functionality
+  setupDragAndDrop();
+  
+  // Setup delayed cards functionality
+  setupDelayedCardsFunctionality();
+  
+  // Setup selection controls for upcoming and imminent columns
+  setupScheduleColumnSelection();
+}
+
+function removeScheduleFromGeneralColumns(zone, scheduledTime) {
+  const columnsWrapper = document.getElementById('watering-schedule-columns');
+  if (!columnsWrapper) return;
+  
+  const selector = `.schedule-card[data-zone="${zone}"][data-scheduled-time="${scheduledTime}"]`;
+  const matchingCards = columnsWrapper.querySelectorAll(selector);
+  matchingCards.forEach(card => card.remove());
+  
+  updateColumnCounts(columnsWrapper);
+}
+
+function removeScheduleFromZoneSchedules(zone, scheduledTime) {
+  const zoneSchedules = document.querySelectorAll('.zone-individual-schedule');
+  zoneSchedules.forEach(scheduleWrapper => {
+    const selector = `.zone-schedule-card[data-zone="${zone}"][data-scheduled-time="${scheduledTime}"]`;
+    const cards = scheduleWrapper.querySelectorAll(selector);
+    if (cards.length === 0) return;
+    
+    cards.forEach(card => card.remove());
+    updateZoneColumnCounts(scheduleWrapper);
+  });
+}
+
+function applyScheduleCardCategory(card, category) {
+  if (!card) return;
+
+  card.setAttribute('data-category', category);
+  card.classList.remove('schedule-upcoming', 'schedule-imminent', 'schedule-delayed', 'draggable');
+  if (!card.classList.contains('schedule-card')) {
+    card.classList.add('schedule-card');
+  }
+  card.classList.add(`schedule-${category}`);
+
+  if (category !== 'upcoming') {
+    card.classList.add('draggable');
+    card.setAttribute('draggable', 'true');
+  } else {
+    card.setAttribute('draggable', 'false');
+  }
+
+  const badge = card.querySelector('.schedule-status-badge');
+  if (badge) {
+    const badges = {
+      upcoming: 'Upcoming',
+      imminent: 'Imminent',
+      delayed: 'Overdue'
+    };
+    badge.textContent = badges[category] || 'Upcoming';
+  }
+
+  const cardHeader = card.querySelector('.schedule-card-header');
+  if (!cardHeader) return;
+
+  let leadingContainer = cardHeader.querySelector('.schedule-card-leading');
+  const existingCheckbox = cardHeader.querySelector('.delayed-checkbox-label');
+  const existingDragHandle = cardHeader.querySelector('.schedule-drag-handle');
+  const existingNoDrag = cardHeader.querySelector('.schedule-no-drag-indicator');
+  let existingSelectLabel = cardHeader.querySelector('.schedule-select-checkbox-label');
+
+  if (!leadingContainer) {
+    leadingContainer = document.createElement('div');
+    leadingContainer.className = 'schedule-card-leading';
+    cardHeader.insertBefore(leadingContainer, cardHeader.firstChild || null);
+
+    if (existingSelectLabel) {
+      leadingContainer.appendChild(existingSelectLabel);
+    }
+    if (existingDragHandle) {
+      leadingContainer.appendChild(existingDragHandle);
+    } else if (existingNoDrag) {
+      leadingContainer.appendChild(existingNoDrag);
+    } else if (existingCheckbox) {
+      leadingContainer.appendChild(existingCheckbox);
+    }
+  }
+
+  existingSelectLabel = leadingContainer.querySelector('.schedule-select-checkbox-label');
+
+  const selectionLabelHTML = (() => {
+    const zone = card.getAttribute('data-zone') || '';
+    const scheduledTime = card.getAttribute('data-scheduled-time') || '';
+    return `<label class="schedule-select-checkbox-label" aria-label="Select schedule">
+      <input type="checkbox" class="schedule-select-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+      <span class="schedule-select-checkbox-custom"></span>
+    </label>`;
+  })();
+
+  if (category === 'delayed') {
+    if (existingSelectLabel) {
+      existingSelectLabel.remove();
+    }
+    if (!cardHeader.querySelector('.delayed-checkbox-label')) {
+      const zone = card.getAttribute('data-zone') || '';
+      const scheduledTime = card.getAttribute('data-scheduled-time') || '';
+      const checkboxHTML = `
+        <label class="delayed-checkbox-label">
+          <input type="checkbox" class="delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+          <span class="delayed-checkbox-custom"></span>
+        </label>
+      `;
+      const controlTarget = leadingContainer.querySelector('.schedule-drag-handle') || leadingContainer.querySelector('.schedule-no-drag-indicator');
+      if (controlTarget) {
+        controlTarget.outerHTML = checkboxHTML;
+      } else {
+        leadingContainer.insertAdjacentHTML('afterbegin', checkboxHTML);
+      }
+    }
+  } else if (category === 'imminent') {
+    if (!existingSelectLabel) {
+      leadingContainer.insertAdjacentHTML('afterbegin', selectionLabelHTML);
+    }
+    if (!leadingContainer.querySelector('.schedule-drag-handle')) {
+      const dragHandleHTML = '<div class="schedule-drag-handle">⋮⋮</div>';
+      const checkbox = leadingContainer.querySelector('.delayed-checkbox-label');
+      const noDrag = leadingContainer.querySelector('.schedule-no-drag-indicator');
+      if (checkbox) {
+        checkbox.outerHTML = dragHandleHTML;
+      } else if (noDrag) {
+        noDrag.outerHTML = dragHandleHTML;
+      } else {
+        leadingContainer.insertAdjacentHTML('beforeend', dragHandleHTML);
+      }
+    }
+  } else if (category === 'upcoming') {
+    if (!existingSelectLabel) {
+      leadingContainer.insertAdjacentHTML('afterbegin', selectionLabelHTML);
+    }
+    if (!leadingContainer.querySelector('.schedule-no-drag-indicator')) {
+      const dragHandle = leadingContainer.querySelector('.schedule-drag-handle');
+      const checkbox = leadingContainer.querySelector('.delayed-checkbox-label');
+      const noDragHTML = '<div class="schedule-no-drag-indicator">📅</div>';
+      if (checkbox) {
+        checkbox.outerHTML = noDragHTML;
+      } else if (dragHandle) {
+        dragHandle.outerHTML = noDragHTML;
+      } else {
+        leadingContainer.insertAdjacentHTML('beforeend', noDragHTML);
+      }
+    }
+  } else if (existingSelectLabel) {
+    existingSelectLabel.remove();
+  }
 }
 
 // Function to dynamically update schedule categorization
 function setupScheduleCategorization() {
   const columnsWrapper = document.getElementById('watering-schedule-columns');
   if (!columnsWrapper) return;
+
+  if (scheduleCategorizationIntervalId !== null) {
+    clearInterval(scheduleCategorizationIntervalId);
+  }
   
-  // Update categorization every 10 seconds
-  setInterval(() => {
+  scheduleCategorizationIntervalId = setInterval(() => {
+    if (!document.body.contains(columnsWrapper)) {
+      clearInterval(scheduleCategorizationIntervalId);
+      scheduleCategorizationIntervalId = null;
+      return;
+    }
+
     const allCards = columnsWrapper.querySelectorAll('.schedule-card');
     const now = Date.now();
     const FIVE_MINUTES_MS = 5 * 60 * 1000;
     
     allCards.forEach(card => {
-      const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
+      if (!card.isConnected) return;
+      const zone = card.getAttribute('data-zone') || '';
+      const scheduledTimeAttr = card.getAttribute('data-scheduled-time') || '';
+
+      if (isScheduleRemoved(zone, scheduledTimeAttr)) {
+        card.remove();
+        updateColumnCounts(columnsWrapper);
+        cleanupRemovedSchedule(zone, scheduledTimeAttr);
+        return;
+      }
+
+      const scheduledTime = parseInt(scheduledTimeAttr, 10);
       if (!scheduledTime) return;
       
       const timeUntil = scheduledTime - now;
       const timeUntilMinutes = timeUntil / (60 * 1000);
       const currentCategory = card.getAttribute('data-category');
-      const userPushed = card.hasAttribute('data-user-pushed');
       
+      // Determine correct category based on time
       let newCategory = currentCategory;
       
-      if (userPushed) {
-        newCategory = 'user-pushed';
-      } else if (timeUntil < 0) {
+      if (timeUntil < 0) {
+        // Time passed - overdue/delayed
         newCategory = 'delayed';
       } else if (timeUntilMinutes <= 5) {
+        // Within 5 minutes - imminent
         newCategory = 'imminent';
       } else {
+        // More than 5 minutes - upcoming
         newCategory = 'upcoming';
       }
       
@@ -331,8 +682,7 @@ function setupScheduleCategorization() {
         const targetContent = targetColumn?.querySelector('.schedule-column-content');
         
         if (targetContent) {
-          card.setAttribute('data-category', newCategory);
-          card.className = `schedule-card schedule-${newCategory}`;
+          applyScheduleCardCategory(card, newCategory);
           targetContent.appendChild(card);
           
           // Update column counts
@@ -352,6 +702,360 @@ function updateColumnCounts(columnsWrapper) {
     if (countEl) {
       countEl.textContent = cards.length;
     }
+    
+    // Show/hide empty message
+    const columnContent = column.querySelector('.schedule-column-content');
+    const emptyMessage = columnContent?.querySelector('.schedule-empty-message');
+    if (emptyMessage) {
+      emptyMessage.style.display = cards.length === 0 ? 'block' : 'none';
+    }
+  });
+}
+
+// Setup drag and drop functionality for schedule cards
+function setupDragAndDrop() {
+  const columnsWrapper = document.getElementById('watering-schedule-columns');
+  if (!columnsWrapper) {
+    setTimeout(setupDragAndDrop, 100);
+      return;
+    }
+    
+  let draggedCard = null;
+  let draggedFromCategory = null;
+
+  // Make draggable schedule cards (not upcoming) draggable
+  function initializeDragCards() {
+    const cards = columnsWrapper.querySelectorAll('.schedule-card.draggable');
+    cards.forEach(card => {
+      card.addEventListener('dragstart', handleDragStart);
+      card.addEventListener('dragend', handleDragEnd);
+    });
+  }
+
+  // Setup drop zones
+  function initializeDropZones() {
+    const dropZones = columnsWrapper.querySelectorAll('.schedule-column-content');
+    dropZones.forEach(dropZone => {
+      dropZone.addEventListener('dragover', handleDragOver);
+      dropZone.addEventListener('drop', handleDrop);
+      dropZone.addEventListener('dragenter', handleDragEnter);
+      dropZone.addEventListener('dragleave', handleDragLeave);
+    });
+  }
+
+  function handleDragStart(e) {
+    draggedCard = this;
+    draggedFromCategory = this.getAttribute('data-category');
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.outerHTML);
+    
+    // Store the card's data
+    e.dataTransfer.setData('zone', this.getAttribute('data-zone'));
+    e.dataTransfer.setData('scheduled-time', this.getAttribute('data-scheduled-time'));
+    e.dataTransfer.setData('duration', this.querySelector('.schedule-duration')?.textContent || '');
+  }
+
+  function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    
+    // Remove drag-over class from all drop zones
+    const dropZones = columnsWrapper.querySelectorAll('.schedule-column-content');
+    dropZones.forEach(zone => {
+      zone.classList.remove('drag-over');
+    });
+    
+    draggedCard = null;
+    draggedFromCategory = null;
+  }
+
+  function handleDragOver(e) {
+    if (e.preventDefault) {
+    e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+  }
+
+  function handleDragEnter(e) {
+    this.classList.add('drag-over');
+  }
+
+  function handleDragLeave(e) {
+    // Only remove drag-over if we're actually leaving the drop zone
+    if (!this.contains(e.relatedTarget)) {
+      this.classList.remove('drag-over');
+    }
+  }
+
+  function handleDrop(e) {
+    if (e.stopPropagation) {
+      e.stopPropagation();
+    }
+
+    this.classList.remove('drag-over');
+
+    if (!draggedCard) return;
+
+    const newCategory = this.getAttribute('data-drop-zone');
+    const oldCategory = draggedCard.getAttribute('data-category');
+
+    // Don't allow dropping into upcoming column
+    if (newCategory === 'upcoming') {
+      return;
+    }
+
+    // Don't do anything if dropped in the same category
+    if (newCategory === oldCategory) {
+      return;
+    }
+
+    // Update card's category
+    applyScheduleCardCategory(draggedCard, newCategory);
+
+    // Move card to new drop zone
+    this.appendChild(draggedCard);
+
+    // Update column counts
+    updateColumnCounts(columnsWrapper);
+
+    // Re-initialize drag handlers for the moved card (if still draggable)
+    if (newCategory !== 'upcoming') {
+      draggedCard.addEventListener('dragstart', handleDragStart);
+      draggedCard.addEventListener('dragend', handleDragEnd);
+    }
+
+    return false;
+  }
+
+
+  // Initialize on load
+  initializeDragCards();
+  initializeDropZones();
+
+  // Re-initialize when new cards are added (for dynamic updates)
+  const observer = new MutationObserver(() => {
+    initializeDragCards();
+  });
+
+  observer.observe(columnsWrapper, {
+    childList: true,
+    subtree: true
+  });
+}
+
+// Setup delayed cards functionality (checkboxes, select all, delete)
+function setupDelayedCardsFunctionality() {
+  const columnsWrapper = document.getElementById('watering-schedule-columns');
+  if (!columnsWrapper) {
+    setTimeout(setupDelayedCardsFunctionality, 100);
+    return;
+  }
+  
+  const delayedColumn = columnsWrapper.querySelector('.schedule-column[data-category="delayed"]');
+  if (!delayedColumn) {
+    setTimeout(setupDelayedCardsFunctionality, 100);
+    return;
+  }
+  
+  const selectAllBtn = delayedColumn.querySelector('.delayed-select-all-btn');
+  const deleteBtn = delayedColumn.querySelector('.delayed-delete-btn');
+  
+  if (!selectAllBtn || !deleteBtn) {
+    setTimeout(setupDelayedCardsFunctionality, 100);
+    return;
+  }
+  
+  // Update delete button state based on checked checkboxes
+  function updateDeleteButtonState() {
+    const checkboxes = delayedColumn.querySelectorAll('.delayed-checkbox');
+    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    deleteBtn.disabled = checkedCount === 0;
+    deleteBtn.setAttribute('data-count', checkedCount);
+    
+    if (checkedCount > 0) {
+      deleteBtn.querySelector('span').textContent = `Delete (${checkedCount})`;
+      } else {
+      deleteBtn.querySelector('span').textContent = 'Delete';
+    }
+  }
+  
+  // Handle checkbox changes
+  delayedColumn.addEventListener('change', (e) => {
+    if (e.target.classList.contains('delayed-checkbox')) {
+      updateDeleteButtonState();
+    }
+  });
+  
+  // Handle select all button
+  selectAllBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const checkboxes = delayedColumn.querySelectorAll('.delayed-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach(cb => {
+      cb.checked = !allChecked;
+    });
+    
+    updateDeleteButtonState();
+    
+    // Update button text
+    if (allChecked) {
+      selectAllBtn.querySelector('span').textContent = 'Select All';
+    } else {
+      selectAllBtn.querySelector('span').textContent = 'Deselect All';
+    }
+  });
+  
+  // Handle delete button
+  deleteBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    
+    const checkboxes = delayedColumn.querySelectorAll('.delayed-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    const confirmMessage = `Delete ${checkboxes.length} delayed schedule${checkboxes.length > 1 ? 's' : ''}?`;
+    if (!confirm(confirmMessage)) return;
+    
+    // Remove selected cards
+    checkboxes.forEach(checkbox => {
+      const card = checkbox.closest('.schedule-card');
+      if (card) {
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.8)';
+        setTimeout(() => {
+          card.remove();
+          updateColumnCounts(columnsWrapper);
+          updateDeleteButtonState();
+        }, 300);
+      }
+    });
+  });
+  
+  // Initialize delete button state
+  updateDeleteButtonState();
+  
+  // Re-initialize when cards are added/removed
+  const observer = new MutationObserver(() => {
+    updateDeleteButtonState();
+  });
+  
+  const delayedContent = delayedColumn.querySelector('.schedule-column-content');
+  if (delayedContent) {
+    observer.observe(delayedContent, {
+      childList: true
+    });
+  }
+}
+
+// Setup selection controls for upcoming and imminent columns
+function setupScheduleColumnSelection() {
+  const columnsWrapper = document.getElementById('watering-schedule-columns');
+  if (!columnsWrapper) {
+    setTimeout(setupScheduleColumnSelection, 100);
+    return;
+  }
+
+  const categories = ['upcoming', 'imminent'];
+  categories.forEach(category => {
+    const column = columnsWrapper.querySelector(`.schedule-column[data-category="${category}"]`);
+    if (!column || column.dataset.selectionInitialized === 'true') {
+      return;
+    }
+
+    const selectAllBtn = column.querySelector(`.schedule-select-all-btn[data-column="${category}"]`);
+    const wateredBtn = column.querySelector(`.schedule-watered-btn[data-column="${category}"]`);
+    const columnContent = column.querySelector('.schedule-column-content');
+
+    if (!selectAllBtn || !wateredBtn || !columnContent) {
+      return;
+    }
+
+    const wateredLabel = wateredBtn.querySelector('span');
+
+    const getCheckboxes = () => columnContent.querySelectorAll('.schedule-select-checkbox');
+
+    const updateSelectAllLabel = () => {
+      const checkboxes = Array.from(getCheckboxes());
+      if (checkboxes.length === 0) {
+        selectAllBtn.querySelector('span').textContent = 'Select All';
+        return;
+      }
+      const allChecked = checkboxes.every(cb => cb.checked);
+      selectAllBtn.querySelector('span').textContent = allChecked ? 'Deselect All' : 'Select All';
+    };
+
+    const updateWateredState = () => {
+      const checkboxes = Array.from(getCheckboxes());
+      const checkedCount = checkboxes.filter(cb => cb.checked).length;
+      wateredBtn.disabled = checkedCount === 0;
+      if (wateredLabel) {
+        wateredLabel.textContent = checkedCount > 0 ? `Watered (${checkedCount})` : 'Watered';
+      }
+    };
+
+    columnContent.addEventListener('change', (event) => {
+      if (event.target.classList.contains('schedule-select-checkbox')) {
+        updateWateredState();
+        updateSelectAllLabel();
+      }
+    });
+
+    selectAllBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      const checkboxes = Array.from(getCheckboxes());
+      if (checkboxes.length === 0) {
+        return;
+      }
+      const allChecked = checkboxes.every(cb => cb.checked);
+      checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+      });
+      updateWateredState();
+      updateSelectAllLabel();
+    });
+
+    wateredBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      const selectedCheckboxes = Array.from(columnContent.querySelectorAll('.schedule-select-checkbox:checked'));
+      if (selectedCheckboxes.length === 0) {
+        return;
+      }
+
+      const processedKeys = new Set();
+      selectedCheckboxes.forEach(cb => {
+        const card = cb.closest('.schedule-card');
+        if (!card) return;
+
+        const zone = card.getAttribute('data-zone') || '';
+        const scheduledTime = card.getAttribute('data-scheduled-time') || '';
+        const key = buildScheduleKey(zone, scheduledTime);
+        if (processedKeys.has(key)) return;
+        processedKeys.add(key);
+
+        markScheduleRemoved(zone, scheduledTime);
+        removeScheduleFromGeneralColumns(zone, scheduledTime);
+        removeScheduleFromZoneSchedules(zone, scheduledTime);
+        cleanupRemovedSchedule(zone, scheduledTime);
+      });
+
+      updateWateredState();
+      updateSelectAllLabel();
+    });
+
+    column.dataset.selectionInitialized = 'true';
+    updateWateredState();
+    updateSelectAllLabel();
+
+    const observer = new MutationObserver(() => {
+      updateWateredState();
+      updateSelectAllLabel();
+    });
+
+    observer.observe(columnContent, {
+      childList: true,
+      subtree: true
+    });
   });
 }
 
@@ -374,7 +1078,7 @@ function sortScheduleCardsByTime(carousel) {
 
 // Setup countdown timers and handle completed zones
 function setupScheduleCountdowns(carousel) {
-  const updateInterval = 100; // Update every 100ms for smooth animation (10-second demo)
+  const updateInterval = 250; // Update cadence adjusted for lower CPU usage
   
   function updateCountdowns() {
     const cards = Array.from(carousel.querySelectorAll('.schedule-card'));
@@ -387,21 +1091,19 @@ function setupScheduleCountdowns(carousel) {
       const timeDisplay = card.querySelector('.schedule-time');
       const waterFill = card.querySelector('.water-tube-fill');
       const zone = card.getAttribute('data-zone');
-      const checkbox = card.querySelector('.zone-disable-checkbox');
-      const isDisabled = !checkbox || !checkbox.checked;
       
-      // Skip disabled zones or if queue is halted
-      if (isDisabled || isHalted) {
+      // Skip if queue is halted
+      if (isHalted) {
         if (countdownEl && !card.classList.contains('schedule-completed')) {
-          countdownEl.textContent = isHalted ? 'Halted' : 'Disabled';
+          countdownEl.textContent = 'Halted';
           countdownEl.classList.add('paused');
+          card.classList.add('zone-schedule-paused');
         }
-        card.classList.add('zone-disabled');
         return;
       } else {
-        card.classList.remove('zone-disabled');
         if (countdownEl) {
           countdownEl.classList.remove('paused');
+          card.classList.remove('zone-schedule-paused');
         }
       }
       
@@ -714,10 +1416,10 @@ function setupGlobalHaltControl() {
         buttonIcon.innerHTML = '<rect x="6" y="6" width="12" height="12" rx="2"/>';
       }
       
-      // Restore countdowns for enabled zones
-      const carousel = document.getElementById('watering-carousel');
-      if (carousel) {
-        const cards = carousel.querySelectorAll('.schedule-card:not(.zone-disabled):not(.schedule-completed)');
+      // Restore countdowns for enabled zones in all columns
+      const columnsWrapper = document.getElementById('watering-schedule-columns');
+      if (columnsWrapper) {
+        const cards = columnsWrapper.querySelectorAll('.schedule-card:not(.schedule-completed)');
         cards.forEach(card => {
           const countdownEl = card.querySelector('.countdown-value');
           const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
@@ -726,8 +1428,11 @@ function setupGlobalHaltControl() {
             const timeUntilSeconds = Math.floor((scheduledTime - now) / 1000);
             if (timeUntilSeconds > 0) {
               countdownEl.textContent = `${timeUntilSeconds}s`;
-              countdownEl.classList.remove('paused');
+            } else {
+              countdownEl.textContent = `${Math.abs(timeUntilSeconds)}s`;
             }
+              countdownEl.classList.remove('paused');
+            card.classList.remove('zone-schedule-paused');
           }
         });
       }
@@ -745,15 +1450,16 @@ function setupGlobalHaltControl() {
         buttonIcon.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"/>';
       }
       
-      // Update all active cards to show "Halted"
-      const carousel = document.getElementById('watering-carousel');
-      if (carousel) {
-        const cards = carousel.querySelectorAll('.schedule-card:not(.zone-disabled):not(.schedule-completed)');
+      // Update all active cards to show "Halted" in all columns
+      const columnsWrapper = document.getElementById('watering-schedule-columns');
+      if (columnsWrapper) {
+        const cards = columnsWrapper.querySelectorAll('.schedule-card:not(.schedule-completed)');
         cards.forEach(card => {
           const countdownEl = card.querySelector('.countdown-value');
           if (countdownEl) {
             countdownEl.textContent = 'Halted';
             countdownEl.classList.add('paused');
+            card.classList.add('zone-schedule-paused');
           }
         });
       }
@@ -896,123 +1602,40 @@ function setupZoneScheduleToggles() {
           });
         }
         
-        // Setup carousel for this zone's schedule
-        const carouselId = `zone-${zoneNumber}-schedule-carousel`;
-        setupZoneScheduleCarousel(carouselId, zoneNumber);
+        // Setup columns for this zone's schedule
+        const columnsId = `zone-${zoneNumber}-schedule-columns`;
+        setupZoneScheduleColumns(columnsId, zoneNumber);
       }
     });
   });
 }
 
-function setupZoneScheduleCarousel(carouselId, zoneNumber) {
-  const carousel = document.getElementById(carouselId);
-  const leftArrow = document.querySelector(`.zone-schedule-carousel-arrow-left[data-zone="${zoneNumber}"]`);
-  const rightArrow = document.querySelector(`.zone-schedule-carousel-arrow-right[data-zone="${zoneNumber}"]`);
+// Setup zone schedule columns (individual zone dropdown with column layout)
+function setupZoneScheduleColumns(columnsId, zoneNumber) {
+  const columnsWrapper = document.getElementById(columnsId);
   
-  if (!carousel || !leftArrow || !rightArrow) {
-    setTimeout(() => setupZoneScheduleCarousel(carouselId, zoneNumber), 100);
+  if (!columnsWrapper) {
+    setTimeout(() => setupZoneScheduleColumns(columnsId, zoneNumber), 100);
     return;
   }
 
-  // Sort cards by scheduled time
-  sortZoneScheduleCards(carousel);
-
-  let currentIndex = 0;
-  let cards = carousel.querySelectorAll('.zone-schedule-card');
-  const totalCards = cards.length;
-  const cardsPerView = 2; // Show 2 cards at a time in the dropdown (compact cards)
-  
-  if (totalCards === 0) {
-    setTimeout(() => setupZoneScheduleCarousel(carouselId, zoneNumber), 100);
-    return;
-  }
-
-  const maxIndex = totalCards > cardsPerView ? totalCards - cardsPerView : 0;
-  
-  // Setup countdown timers for this zone's schedule
-  setupZoneScheduleCountdowns(carousel, zoneNumber);
-
-  function updateCarousel() {
-    cards = carousel.querySelectorAll('.zone-schedule-card');
-    if (cards.length === 0) {
-      setTimeout(updateCarousel, 100);
-      return;
+  // Setup countdown timers for all columns in this zone
+  const allColumns = columnsWrapper.querySelectorAll('.zone-schedule-column');
+  allColumns.forEach(column => {
+    const columnContent = column.querySelector('.zone-schedule-column-content');
+    if (columnContent) {
+      setupZoneScheduleCountdowns(columnContent, zoneNumber);
     }
-    
-    const wrapper = carousel.parentElement;
-    if (!wrapper) {
-      setTimeout(updateCarousel, 100);
-      return;
-    }
-    
-    const wrapperWidth = wrapper.offsetWidth;
-    if (wrapperWidth === 0) {
-      setTimeout(updateCarousel, 100);
-      return;
-    }
-    
-    const carouselStyle = window.getComputedStyle(carousel);
-    const gapValue = carouselStyle.gap || '16px';
-    const gap = parseFloat(gapValue) || 16;
-    
-    const cardWidth = (wrapperWidth - gap) / cardsPerView;
-    
-    cards.forEach((card) => {
-      card.style.width = cardWidth + 'px';
-      card.style.minWidth = cardWidth + 'px';
-      card.style.maxWidth = cardWidth + 'px';
-      card.style.flexBasis = cardWidth + 'px';
-    });
-    
-    const translateX = -currentIndex * (cardWidth + gap);
-    carousel.style.transform = `translateX(${translateX}px)`;
-    carousel.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-  }
-
-  function next() {
-    if (currentIndex >= maxIndex) {
-      currentIndex = 0;
-    } else {
-      currentIndex++;
-    }
-    updateCarousel();
-  }
-
-  function prev() {
-    if (currentIndex <= 0) {
-      currentIndex = maxIndex;
-    } else {
-      currentIndex--;
-    }
-    updateCarousel();
-  }
-
-  rightArrow.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    next();
   });
   
-  leftArrow.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    prev();
-  });
-
-  requestAnimationFrame(() => {
-    currentIndex = 0;
-    updateCarousel();
-  });
+  // Setup drag and drop for this zone's schedule
+  setupZoneScheduleDragAndDrop(columnsWrapper, zoneNumber);
   
-  let resizeTimeout;
-  const resizeHandler = () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      updateCarousel();
-    }, 200);
-  };
+  // Setup delayed cards functionality for this zone
+  setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber);
   
-  window.addEventListener('resize', resizeHandler);
+  // Setup automatic categorization for this zone
+  setupZoneScheduleCategorization(columnsWrapper, zoneNumber);
 }
 
 function sortZoneScheduleCards(carousel) {
@@ -1030,11 +1653,12 @@ function sortZoneScheduleCards(carousel) {
   });
 }
 
-function setupZoneScheduleCountdowns(carousel, zoneNumber) {
-  const updateInterval = 100;
+// Setup countdowns for zone schedule cards in column content
+function setupZoneScheduleCountdowns(columnContent, zoneNumber) {
+  const updateInterval = 250;
   
   function updateCountdowns() {
-    const cards = Array.from(carousel.querySelectorAll('.zone-schedule-card'));
+    const cards = Array.from(columnContent.querySelectorAll('.zone-schedule-card'));
     const isHalted = document.body.classList.contains('watering-halted');
     
     cards.forEach(card => {
@@ -1098,10 +1722,397 @@ function setupZoneScheduleCountdowns(carousel, zoneNumber) {
   updateCountdowns();
   const intervalId = setInterval(updateCountdowns, updateInterval);
   
-  if (carousel.dataset.intervalId) {
-    clearInterval(parseInt(carousel.dataset.intervalId));
+  if (columnContent.dataset.intervalId) {
+    clearInterval(parseInt(columnContent.dataset.intervalId));
   }
-  carousel.dataset.intervalId = intervalId.toString();
+  columnContent.dataset.intervalId = intervalId.toString();
+}
+
+// Setup automatic categorization for zone schedules
+function setupZoneScheduleCategorization(columnsWrapper, zoneNumber) {
+  setInterval(() => {
+    const allCards = columnsWrapper.querySelectorAll('.zone-schedule-card');
+    const now = Date.now();
+    const FIVE_MINUTES_MS = 5 * 60 * 1000;
+    
+    allCards.forEach(card => {
+      const zone = card.getAttribute('data-zone') || '';
+      const scheduledTimeAttr = card.getAttribute('data-scheduled-time') || '';
+
+      if (isScheduleRemoved(zone, scheduledTimeAttr)) {
+        card.remove();
+        updateZoneColumnCounts(columnsWrapper);
+        cleanupRemovedSchedule(zone, scheduledTimeAttr);
+        return;
+      }
+
+      const scheduledTime = parseInt(scheduledTimeAttr, 10);
+      if (!scheduledTime) return;
+      
+      const timeUntil = scheduledTime - now;
+      const timeUntilMinutes = timeUntil / (60 * 1000);
+      const currentCategory = card.getAttribute('data-category');
+      
+      let newCategory = currentCategory;
+      
+      if (timeUntil < 0) {
+        newCategory = 'delayed';
+      } else if (timeUntilMinutes <= 5) {
+        newCategory = 'imminent';
+      } else {
+        newCategory = 'upcoming';
+      }
+      
+      if (newCategory !== currentCategory) {
+        const targetColumn = columnsWrapper.querySelector(`.zone-schedule-column[data-category="${newCategory}"]`);
+        const targetContent = targetColumn?.querySelector('.zone-schedule-column-content');
+        
+        if (targetContent) {
+          card.setAttribute('data-category', newCategory);
+          
+          // Update draggable state
+          if (newCategory === 'upcoming') {
+            card.className = `zone-schedule-card zone-schedule-${newCategory}`;
+            card.setAttribute('draggable', 'false');
+          } else {
+            card.className = `zone-schedule-card zone-schedule-${newCategory} draggable`;
+            card.setAttribute('draggable', 'true');
+          }
+          
+          const badge = card.querySelector('.zone-schedule-status-badge');
+          if (badge) {
+            const badges = {
+              'upcoming': 'Upcoming',
+              'imminent': 'Urgent',
+              'delayed': 'Overdue'
+            };
+            badge.textContent = badges[newCategory] || 'Upcoming';
+          }
+          
+          // Handle checkbox/drag-handle/no-drag-indicator swap
+          const cardHeader = card.querySelector('.zone-schedule-card-header');
+          if (cardHeader) {
+            const existingCheckbox = cardHeader.querySelector('.zone-delayed-checkbox-label');
+            const existingDragHandle = cardHeader.querySelector('.zone-schedule-drag-handle');
+            const existingNoDrag = cardHeader.querySelector('.schedule-no-drag-indicator');
+            
+            if (newCategory === 'delayed') {
+              if (!existingCheckbox) {
+                const zone = card.getAttribute('data-zone');
+                const scheduledTime = card.getAttribute('data-scheduled-time');
+                const checkboxHTML = `
+                  <label class="zone-delayed-checkbox-label">
+                    <input type="checkbox" class="zone-delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+                    <span class="zone-delayed-checkbox-custom"></span>
+                  </label>
+                `;
+                if (existingDragHandle) {
+                  existingDragHandle.outerHTML = checkboxHTML;
+                } else if (existingNoDrag) {
+                  existingNoDrag.outerHTML = checkboxHTML;
+                }
+              }
+            } else if (newCategory === 'imminent') {
+              if (!existingDragHandle) {
+                const dragHandleHTML = '<div class="zone-schedule-drag-handle">⋮⋮</div>';
+                if (existingCheckbox) {
+                  existingCheckbox.outerHTML = dragHandleHTML;
+                } else if (existingNoDrag) {
+                  existingNoDrag.outerHTML = dragHandleHTML;
+                }
+              }
+            } else if (newCategory === 'upcoming') {
+              if (!existingNoDrag) {
+                const noDragHTML = '<div class="schedule-no-drag-indicator">📅</div>';
+                if (existingCheckbox) {
+                  existingCheckbox.outerHTML = noDragHTML;
+                } else if (existingDragHandle) {
+                  existingDragHandle.outerHTML = noDragHTML;
+                }
+              }
+            }
+          }
+          
+          targetContent.appendChild(card);
+          updateZoneColumnCounts(columnsWrapper);
+        }
+      }
+    });
+  }, 10000);
+}
+
+// Update zone column counts
+function updateZoneColumnCounts(columnsWrapper) {
+  const columns = columnsWrapper.querySelectorAll('.zone-schedule-column');
+  columns.forEach(column => {
+    const countEl = column.querySelector('.zone-schedule-column-count');
+    const cards = column.querySelectorAll('.zone-schedule-card');
+    if (countEl) {
+      countEl.textContent = cards.length;
+    }
+    
+    const columnContent = column.querySelector('.zone-schedule-column-content');
+    const emptyMessage = columnContent?.querySelector('.zone-schedule-empty-message');
+    if (emptyMessage) {
+      emptyMessage.style.display = cards.length === 0 ? 'block' : 'none';
+    }
+  });
+}
+
+// Setup drag and drop for zone schedule cards
+function setupZoneScheduleDragAndDrop(columnsWrapper, zoneNumber) {
+  let draggedCard = null;
+  
+  function initializeDragCards() {
+    const cards = columnsWrapper.querySelectorAll('.zone-schedule-card.draggable');
+    cards.forEach(card => {
+      card.addEventListener('dragstart', handleDragStart);
+      card.addEventListener('dragend', handleDragEnd);
+    });
+  }
+  
+  function initializeDropZones() {
+    const dropZones = columnsWrapper.querySelectorAll('.zone-schedule-column-content');
+    dropZones.forEach(dropZone => {
+      dropZone.addEventListener('dragover', handleDragOver);
+      dropZone.addEventListener('drop', handleDrop);
+      dropZone.addEventListener('dragenter', handleDragEnter);
+      dropZone.addEventListener('dragleave', handleDragLeave);
+    });
+  }
+  
+  function handleDragStart(e) {
+    draggedCard = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  }
+  
+  function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    const dropZones = columnsWrapper.querySelectorAll('.zone-schedule-column-content');
+    dropZones.forEach(zone => zone.classList.remove('drag-over'));
+    draggedCard = null;
+  }
+  
+  function handleDragOver(e) {
+    if (e.preventDefault) {
+      e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+  }
+  
+  function handleDragEnter(e) {
+    this.classList.add('drag-over');
+  }
+  
+  function handleDragLeave(e) {
+    if (!this.contains(e.relatedTarget)) {
+      this.classList.remove('drag-over');
+    }
+  }
+  
+  function handleDrop(e) {
+    if (e.stopPropagation) {
+      e.stopPropagation();
+    }
+    
+    this.classList.remove('drag-over');
+    if (!draggedCard) return;
+    
+    const newCategory = this.getAttribute('data-drop-zone');
+    const oldCategory = draggedCard.getAttribute('data-category');
+    
+    // Don't allow dropping into upcoming column
+    if (newCategory === 'upcoming') {
+      return;
+    }
+    
+    if (newCategory === oldCategory) return;
+    
+    draggedCard.setAttribute('data-category', newCategory);
+    updateZoneCardCategory(draggedCard, newCategory);
+    this.appendChild(draggedCard);
+    updateZoneColumnCounts(columnsWrapper);
+    
+    // Re-initialize drag handlers for the moved card (if still draggable)
+    if (newCategory !== 'upcoming') {
+      draggedCard.addEventListener('dragstart', handleDragStart);
+      draggedCard.addEventListener('dragend', handleDragEnd);
+    }
+    
+    return false;
+  }
+  
+  function updateZoneCardCategory(card, category) {
+    card.classList.remove('zone-schedule-upcoming', 'zone-schedule-imminent', 'zone-schedule-delayed', 'draggable');
+    card.classList.add(`zone-schedule-${category}`);
+    
+    // Update draggable state
+    if (category !== 'upcoming') {
+      card.classList.add('draggable');
+      card.setAttribute('draggable', 'true');
+    } else {
+      card.setAttribute('draggable', 'false');
+    }
+    
+    const badge = card.querySelector('.zone-schedule-status-badge');
+    if (badge) {
+      const badges = {
+        'upcoming': 'Upcoming',
+        'imminent': 'Urgent',
+        'delayed': 'Overdue'
+      };
+      badge.textContent = badges[category] || 'Upcoming';
+    }
+    
+    const cardHeader = card.querySelector('.zone-schedule-card-header');
+    if (!cardHeader) return;
+    
+    const existingCheckbox = cardHeader.querySelector('.zone-delayed-checkbox-label');
+    const existingDragHandle = cardHeader.querySelector('.zone-schedule-drag-handle');
+    const existingNoDrag = cardHeader.querySelector('.schedule-no-drag-indicator');
+    
+    if (category === 'delayed') {
+      // Add checkbox
+      if (!existingCheckbox) {
+        const zone = card.getAttribute('data-zone');
+        const scheduledTime = card.getAttribute('data-scheduled-time');
+        const checkboxHTML = `
+          <label class="zone-delayed-checkbox-label">
+            <input type="checkbox" class="zone-delayed-checkbox" data-zone="${zone}" data-scheduled-time="${scheduledTime}">
+            <span class="zone-delayed-checkbox-custom"></span>
+          </label>
+        `;
+        if (existingDragHandle) {
+          existingDragHandle.outerHTML = checkboxHTML;
+        } else if (existingNoDrag) {
+          existingNoDrag.outerHTML = checkboxHTML;
+        }
+      }
+    } else if (category === 'imminent') {
+      // Add drag handle
+      if (!existingDragHandle) {
+        const dragHandleHTML = '<div class="zone-schedule-drag-handle">⋮⋮</div>';
+        if (existingCheckbox) {
+          existingCheckbox.outerHTML = dragHandleHTML;
+        } else if (existingNoDrag) {
+          existingNoDrag.outerHTML = dragHandleHTML;
+        }
+      }
+    } else if (category === 'upcoming') {
+      // Add no-drag indicator
+      if (!existingNoDrag) {
+        const noDragHTML = '<div class="schedule-no-drag-indicator">📅</div>';
+        if (existingCheckbox) {
+          existingCheckbox.outerHTML = noDragHTML;
+        } else if (existingDragHandle) {
+          existingDragHandle.outerHTML = noDragHTML;
+        }
+      }
+    }
+  }
+  
+  initializeDragCards();
+  initializeDropZones();
+  
+  const observer = new MutationObserver(() => {
+    initializeDragCards();
+  });
+  
+  observer.observe(columnsWrapper, {
+    childList: true,
+    subtree: true
+  });
+}
+
+// Setup delayed cards functionality for individual zone schedules
+function setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber) {
+  const delayedColumn = columnsWrapper.querySelector('.zone-schedule-column[data-category="delayed"]');
+  if (!delayedColumn) {
+    setTimeout(() => setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber), 100);
+    return;
+  }
+  
+  const selectAllBtn = delayedColumn.querySelector('.zone-delayed-select-all-btn');
+  const deleteBtn = delayedColumn.querySelector('.zone-delayed-delete-btn');
+  
+  if (!selectAllBtn || !deleteBtn) {
+    setTimeout(() => setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber), 100);
+    return;
+  }
+  
+  function updateDeleteButtonState() {
+    const checkboxes = delayedColumn.querySelectorAll('.zone-delayed-checkbox');
+    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    deleteBtn.disabled = checkedCount === 0;
+    
+    if (checkedCount > 0) {
+      deleteBtn.querySelector('span').textContent = `Delete (${checkedCount})`;
+    } else {
+      deleteBtn.querySelector('span').textContent = 'Delete';
+    }
+  }
+  
+  delayedColumn.addEventListener('change', (e) => {
+    if (e.target.classList.contains('zone-delayed-checkbox')) {
+      updateDeleteButtonState();
+    }
+  });
+  
+  selectAllBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    const checkboxes = delayedColumn.querySelectorAll('.zone-delayed-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach(cb => {
+      cb.checked = !allChecked;
+    });
+    
+    updateDeleteButtonState();
+    
+    if (allChecked) {
+      selectAllBtn.querySelector('span').textContent = 'Select All';
+    } else {
+      selectAllBtn.querySelector('span').textContent = 'Deselect All';
+    }
+  });
+  
+  deleteBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    
+    const checkboxes = delayedColumn.querySelectorAll('.zone-delayed-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    const confirmMessage = `Delete ${checkboxes.length} delayed schedule${checkboxes.length > 1 ? 's' : ''} from ${zoneNumber}?`;
+    if (!confirm(confirmMessage)) return;
+    
+    checkboxes.forEach(checkbox => {
+      const card = checkbox.closest('.zone-schedule-card');
+      if (card) {
+        card.style.opacity = '0';
+        card.style.transform = 'scale(0.8)';
+        setTimeout(() => {
+          card.remove();
+          updateZoneColumnCounts(columnsWrapper);
+          updateDeleteButtonState();
+        }, 300);
+      }
+    });
+  });
+  
+  updateDeleteButtonState();
+  
+  const observer = new MutationObserver(() => {
+    updateDeleteButtonState();
+  });
+  
+  const delayedContent = delayedColumn.querySelector('.zone-schedule-column-content');
+  if (delayedContent) {
+    observer.observe(delayedContent, {
+      childList: true
+    });
+  }
 }
 
 function setupZoneMoistureGraph(canvas, zoneNumber) {

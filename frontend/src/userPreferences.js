@@ -1,11 +1,37 @@
-// Get Supabase client
-function getSupabase() {
-  if (typeof window === 'undefined' || !window.supabase) {
-    throw new Error('Supabase script not loaded');
+import { supabase } from './config.js';
+import { getUserProfile } from './auth.js';
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return '';
   }
-  const SUPABASE_URL = 'https://sxserhbozsmqbyninsbq.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4c2VyaGJvenNtcWJ5bmluc2JxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI2MjM0MDQsImV4cCI6MjA3ODE5OTQwNH0.WGZfUuLU5Ug0FH6RCwl2RE8F89FqP--qtBhe8ENZ8r0';
-  return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function createZoneButtonMarkup(zone, index) {
+  const nameFallback = `Zone ${index + 1}`;
+  const zoneName = zone?.name && zone.name.trim().length > 0 ? zone.name.trim() : nameFallback;
+  // Make all zone buttons green (active) by default since they're valid zones
+  const buttonClass = `zone-button zone-button-active`;
+
+  const dataAttributes = [];
+  if (zone?.id !== undefined && zone?.id !== null) {
+    dataAttributes.push(`data-zone-id="${escapeHtml(zone.id)}"`);
+  }
+  if (zone?.owner) {
+    dataAttributes.push(`data-zone-owner="${escapeHtml(zone.owner)}"`);
+  }
+
+  return `
+    <div class="${buttonClass}" ${dataAttributes.join(' ')}>
+      ${escapeHtml(zoneName)}
+    </div>
+  `;
 }
 
 export function createUserPreferencesComponent() {
@@ -28,19 +54,10 @@ export function createUserPreferencesComponent() {
             </div>
 
             <!-- Zone List -->
-            <div class="zones-list">
-              <div class="zone-button zone-button-inactive" data-zone="1">
-                Zone 1
-              </div>
-              <div class="zone-button zone-button-active" data-zone="2">
-                Zone 2
-              </div>
-              <div class="zone-button zone-button-inactive" data-zone="3">
-                Zone 3
-              </div>
-              <div class="zone-button zone-button-inactive" data-zone="4">
-                Zone 4
-              </div>
+            <div class="zones-list" id="zones-list">
+              <!-- Fetched zones from database will be inserted here -->
+              <div id="database-zones-container"></div>
+              
               <button class="add-zone-button" id="add-zone-btn">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 5v14M5 12h14"/>
@@ -52,10 +69,15 @@ export function createUserPreferencesComponent() {
             <!-- Zone Configuration Form -->
             <div class="zone-config-form" id="zone-config-form">
               <div class="form-field">
+                <label for="zone-name">Zone Name</label>
+                <input type="text" id="zone-name" class="form-input" placeholder="Enter zone name (e.g., North Field, Garden 1)">
+              </div>
+              
+              <div class="form-field">
                 <label for="crop-type">Crop</label>
                 <select id="crop-type" class="form-input form-select">
                   <option value="">Select crop type</option>
-                  <!-- Crop options will be loaded dynamically -->
+                  <!-- Crop options will be loaded dynamically from Supabase -->
                 </select>
               </div>
               
@@ -100,7 +122,6 @@ export async function loadCropOptions() {
     }
 
     // Fetch crops from Supabase thresholds table
-    const supabase = getSupabase();
     const { data, error } = await supabase
       .from('thresholds')
       .select('crop_name')
@@ -140,3 +161,94 @@ export async function loadCropOptions() {
   }
 }
 
+export async function loadUserZones() {
+  const zonesContainer = document.getElementById('database-zones-container');
+  if (!zonesContainer) {
+    console.warn('Zones container not found in DOM');
+    return;
+  }
+
+  zonesContainer.setAttribute('aria-busy', 'true');
+  zonesContainer.innerHTML = `
+    <div class="zone-button zone-button-inactive" data-loading="true">
+      Loading zones...
+    </div>
+  `;
+
+  try {
+    const profile = await getUserProfile();
+
+    if (!profile) {
+      zonesContainer.innerHTML = `
+        <div class="zone-button zone-button-inactive" data-empty="true">
+          Sign in to view your zones
+        </div>
+      `;
+      return;
+    }
+
+    const { data: zones, error } = await supabase
+      .from('zones')
+      .select('id, name, crop_type, watering_amount_l, auto_irrigation_enabled, owner')
+      .eq('owner', profile.id);
+
+    if (error) {
+      throw error;
+    }
+
+    const userZones = zones || [];
+
+    if (userZones.length === 0) {
+      zonesContainer.innerHTML = `
+        <div class="zone-button zone-button-inactive" data-empty="true">
+          No zones saved yet
+        </div>
+      `;
+      return;
+    }
+
+    userZones.sort((a, b) => {
+      const nameA = (a?.name || '').toLowerCase();
+      const nameB = (b?.name || '').toLowerCase();
+      if (nameA === nameB) return 0;
+      if (!nameA) return 1;
+      if (!nameB) return -1;
+      return nameA.localeCompare(nameB);
+    });
+
+    zonesContainer.innerHTML = userZones
+      .map((zone, index) => createZoneButtonMarkup(zone, index))
+      .join('');
+
+    // Add click handlers to zone buttons
+    zonesContainer.querySelectorAll('.zone-button[data-zone-id]').forEach(button => {
+      button.addEventListener('click', async () => {
+        const zoneId = button.getAttribute('data-zone-id');
+        const zone = userZones.find(z => z.id === zoneId);
+        if (zone) {
+          // Load zone data into form
+          const { loadZoneIntoForm } = await import('./App.js');
+          loadZoneIntoForm(zone);
+          
+          // Show the form
+          const form = document.getElementById('zone-config-form');
+          if (form) {
+            form.classList.add('show');
+            setTimeout(() => {
+              form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 50);
+          }
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Error loading user zones:', error);
+    zonesContainer.innerHTML = `
+      <div class="zone-button zone-button-inactive" data-error="true">
+        Unable to load zones
+      </div>
+    `;
+  } finally {
+    zonesContainer.removeAttribute('aria-busy');
+  }
+}
