@@ -19,6 +19,9 @@ export function setupDashboard() {
 
   // Setup zone graph toggles
   setupZoneGraphToggles();
+  
+  // Setup zone schedule toggles
+  setupZoneScheduleToggles();
 }
 
 function setupZonesCarousel() {
@@ -794,6 +797,272 @@ function setupZoneGraphToggles() {
       }
     });
   });
+}
+
+function setupZoneScheduleToggles() {
+  const toggleButtons = document.querySelectorAll('.zone-schedule-toggle');
+  
+  toggleButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const zoneNumber = button.getAttribute('data-zone');
+      const scheduleSection = document.querySelector(`.zone-schedule-section[data-zone="${zoneNumber}"]`);
+      
+      if (!scheduleSection) return;
+      
+      const isExpanded = scheduleSection.classList.contains('expanded');
+      
+      if (isExpanded) {
+        // Collapse - smooth glide up
+        const inner = scheduleSection.querySelector('.zone-schedule-section-inner');
+        if (inner) {
+          const currentHeight = scheduleSection.style.height === 'auto' 
+            ? scheduleSection.offsetHeight 
+            : parseInt(scheduleSection.style.height) || scheduleSection.scrollHeight;
+          scheduleSection.style.height = currentHeight + 'px';
+          scheduleSection.style.overflow = 'hidden';
+          scheduleSection.offsetHeight;
+          requestAnimationFrame(() => {
+            scheduleSection.style.height = '0px';
+          });
+        }
+        scheduleSection.classList.remove('expanded');
+        button.classList.remove('active');
+        button.querySelector('.zone-schedule-toggle-text').textContent = 'View Zone Schedule';
+      } else {
+        // Expand - smooth glide down
+        scheduleSection.classList.add('expanded');
+        button.classList.add('active');
+        button.querySelector('.zone-schedule-toggle-text').textContent = 'Hide Zone Schedule';
+        
+        // Measure and set height for smooth transition
+        const inner = scheduleSection.querySelector('.zone-schedule-section-inner');
+        if (inner) {
+          scheduleSection.style.height = 'auto';
+          scheduleSection.style.overflow = 'visible';
+          const targetHeight = inner.scrollHeight + 24;
+          scheduleSection.style.height = '0px';
+          scheduleSection.style.overflow = 'hidden';
+          
+          scheduleSection.offsetHeight;
+          
+          requestAnimationFrame(() => {
+            scheduleSection.style.height = targetHeight + 'px';
+            setTimeout(() => {
+              scheduleSection.style.height = 'auto';
+              scheduleSection.style.overflow = 'visible';
+            }, 300);
+          });
+        }
+        
+        // Setup carousel for this zone's schedule
+        const carouselId = `zone-${zoneNumber}-schedule-carousel`;
+        setupZoneScheduleCarousel(carouselId, zoneNumber);
+      }
+    });
+  });
+}
+
+function setupZoneScheduleCarousel(carouselId, zoneNumber) {
+  const carousel = document.getElementById(carouselId);
+  const leftArrow = document.querySelector(`.zone-schedule-carousel-arrow-left[data-zone="${zoneNumber}"]`);
+  const rightArrow = document.querySelector(`.zone-schedule-carousel-arrow-right[data-zone="${zoneNumber}"]`);
+  
+  if (!carousel || !leftArrow || !rightArrow) {
+    setTimeout(() => setupZoneScheduleCarousel(carouselId, zoneNumber), 100);
+    return;
+  }
+
+  // Sort cards by scheduled time
+  sortZoneScheduleCards(carousel);
+
+  let currentIndex = 0;
+  let cards = carousel.querySelectorAll('.zone-schedule-card');
+  const totalCards = cards.length;
+  const cardsPerView = 2; // Show 2 cards at a time in the dropdown (compact cards)
+  
+  if (totalCards === 0) {
+    setTimeout(() => setupZoneScheduleCarousel(carouselId, zoneNumber), 100);
+    return;
+  }
+
+  const maxIndex = totalCards > cardsPerView ? totalCards - cardsPerView : 0;
+  
+  // Setup countdown timers for this zone's schedule
+  setupZoneScheduleCountdowns(carousel, zoneNumber);
+
+  function updateCarousel() {
+    cards = carousel.querySelectorAll('.zone-schedule-card');
+    if (cards.length === 0) {
+      setTimeout(updateCarousel, 100);
+      return;
+    }
+    
+    const wrapper = carousel.parentElement;
+    if (!wrapper) {
+      setTimeout(updateCarousel, 100);
+      return;
+    }
+    
+    const wrapperWidth = wrapper.offsetWidth;
+    if (wrapperWidth === 0) {
+      setTimeout(updateCarousel, 100);
+      return;
+    }
+    
+    const carouselStyle = window.getComputedStyle(carousel);
+    const gapValue = carouselStyle.gap || '16px';
+    const gap = parseFloat(gapValue) || 16;
+    
+    const cardWidth = (wrapperWidth - gap) / cardsPerView;
+    
+    cards.forEach((card) => {
+      card.style.width = cardWidth + 'px';
+      card.style.minWidth = cardWidth + 'px';
+      card.style.maxWidth = cardWidth + 'px';
+      card.style.flexBasis = cardWidth + 'px';
+    });
+    
+    const translateX = -currentIndex * (cardWidth + gap);
+    carousel.style.transform = `translateX(${translateX}px)`;
+    carousel.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+  }
+
+  function next() {
+    if (currentIndex >= maxIndex) {
+      currentIndex = 0;
+    } else {
+      currentIndex++;
+    }
+    updateCarousel();
+  }
+
+  function prev() {
+    if (currentIndex <= 0) {
+      currentIndex = maxIndex;
+    } else {
+      currentIndex--;
+    }
+    updateCarousel();
+  }
+
+  rightArrow.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    next();
+  });
+  
+  leftArrow.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    prev();
+  });
+
+  requestAnimationFrame(() => {
+    currentIndex = 0;
+    updateCarousel();
+  });
+  
+  let resizeTimeout;
+  const resizeHandler = () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      updateCarousel();
+    }, 200);
+  };
+  
+  window.addEventListener('resize', resizeHandler);
+}
+
+function sortZoneScheduleCards(carousel) {
+  const cards = Array.from(carousel.querySelectorAll('.zone-schedule-card'));
+  
+  cards.sort((a, b) => {
+    const timeA = parseInt(a.getAttribute('data-scheduled-time')) || 0;
+    const timeB = parseInt(b.getAttribute('data-scheduled-time')) || 0;
+    return timeA - timeB;
+  });
+  
+  cards.forEach((card, index) => {
+    card.setAttribute('data-index', index);
+    carousel.appendChild(card);
+  });
+}
+
+function setupZoneScheduleCountdowns(carousel, zoneNumber) {
+  const updateInterval = 100;
+  
+  function updateCountdowns() {
+    const cards = Array.from(carousel.querySelectorAll('.zone-schedule-card'));
+    const isHalted = document.body.classList.contains('watering-halted');
+    
+    cards.forEach(card => {
+      const scheduledTime = parseInt(card.getAttribute('data-scheduled-time'));
+      const countdownEl = card.querySelector('.zone-countdown-value');
+      const timeDisplay = card.querySelector('.zone-schedule-time');
+      const waterFill = card.querySelector('.zone-water-tube-fill');
+      
+      if (!scheduledTime || !countdownEl) return;
+      
+      if (isHalted) {
+        if (countdownEl && !card.classList.contains('schedule-completed')) {
+          countdownEl.textContent = 'Halted';
+          countdownEl.classList.add('paused');
+        }
+        card.classList.add('zone-schedule-paused');
+        return;
+      } else {
+        card.classList.remove('zone-schedule-paused');
+        if (countdownEl) {
+          countdownEl.classList.remove('paused');
+        }
+      }
+      
+      const now = Date.now();
+      const timeUntilSeconds = Math.floor((scheduledTime - now) / 1000);
+      const totalDuration = 10;
+      const progress = Math.max(0, Math.min(100, ((totalDuration - timeUntilSeconds) / totalDuration) * 100));
+      
+      if (timeUntilSeconds <= 0) {
+        countdownEl.textContent = 'Completed';
+        countdownEl.classList.add('completed');
+        card.classList.add('schedule-completed');
+        if (waterFill) {
+          waterFill.style.height = '100%';
+        }
+      } else {
+        countdownEl.textContent = `${timeUntilSeconds}s`;
+        countdownEl.classList.remove('completed');
+        card.classList.remove('schedule-completed');
+        
+        if (waterFill) {
+          waterFill.style.height = `${progress}%`;
+          waterFill.style.transition = 'height 0.1s linear';
+        }
+        
+        const scheduledDate = new Date(scheduledTime);
+        const timeStr = scheduledDate.toLocaleTimeString('en-US', { 
+          hour: 'numeric', 
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true 
+        });
+        if (timeDisplay) {
+          timeDisplay.textContent = timeStr;
+        }
+      }
+    });
+  }
+  
+  updateCountdowns();
+  const intervalId = setInterval(updateCountdowns, updateInterval);
+  
+  if (carousel.dataset.intervalId) {
+    clearInterval(parseInt(carousel.dataset.intervalId));
+  }
+  carousel.dataset.intervalId = intervalId.toString();
 }
 
 function setupZoneMoistureGraph(canvas, zoneNumber) {
