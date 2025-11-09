@@ -36,9 +36,6 @@ export function setupDashboard() {
     // Setup zones carousel after zones are loaded
     setupZonesCarousel();
     
-    // Setup watering schedule columns
-    setupWateringScheduleColumns();
-    
     // Load telemetry data for all zones
     loadZoneTelemetryData();
     

@@ -4157,8 +4157,8 @@
 .graph-axes {
   position: relative;
   display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
+  justify-content: center;
+  margin-top: 12px;
   font-size: 14px;
   font-weight: 600;
   color: var(--schemes-on-surface);
@@ -4166,15 +4166,19 @@
 
 .graph-y-axis {
   position: absolute;
-  left: -50px;
-  top: 50%;
-  transform: translateY(-50%) rotate(-90deg);
+  left: -60px;
+  top: -83px;
+  transform: rotate(-90deg);
   transform-origin: center;
   white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .graph-x-axis {
-  margin-left: auto;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .graph-legend {
