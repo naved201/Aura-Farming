@@ -1,7 +1,7 @@
 import { createNavigationRail, setupNavigationRail } from './navigationRail.js'
 import { createReviewsComponent } from './reviews.js'
 import { protectRoute, logout, getCurrentUser, getUserProfile } from './auth.js'
-import { createUserPreferencesComponent } from './userPreferences.js'
+import { createUserPreferencesComponent, loadCropOptions, loadUserZones } from './userPreferences.js'
 import { createCropManagementComponent } from './cropManagement.js'
 import { setupDashboard } from './dashboard.js'
 import { setupStatsCarousel } from './carousel.js'
@@ -32,11 +32,10 @@ export function navigateTo(page) {
     }, 50);
   } else if (page === 'user-preferences') {
     contentArea.innerHTML = createUserPreferencesComponent();
-    setTimeout(async () => {
+    setTimeout(() => {
       setupUserPreferences();
-      // Load crop options from Supabase
-      const { loadCropOptions } = await import('./userPreferences.js');
       loadCropOptions();
+      loadUserZones();
     }, 50);
   } else if (page === 'crop-management') {
     contentArea.innerHTML = createCropManagementComponent();
@@ -379,6 +378,8 @@ export function setupUserPreferences() {
         if (frequencyInput) frequencyInput.style.borderColor = 'rgba(102, 187, 106, 0.35)';
 
         console.log('Zone saved to Supabase:', result.data);
+
+        await loadUserZones();
 
       } catch (error) {
         console.error('Error saving zone:', error);

@@ -1,4 +1,38 @@
 import { supabase } from './config.js';
+import { getUserProfile } from './auth.js';
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function createZoneButtonMarkup(zone, index) {
+  const nameFallback = `Zone ${index + 1}`;
+  const zoneName = zone?.name && zone.name.trim().length > 0 ? zone.name.trim() : nameFallback;
+  const isAutomated = Boolean(zone?.auto_irrigation_enabled);
+  const buttonClass = `zone-button ${isAutomated ? 'zone-button-active' : 'zone-button-inactive'}`;
+
+  const dataAttributes = [];
+  if (zone?.id !== undefined && zone?.id !== null) {
+    dataAttributes.push(`data-zone-id="${escapeHtml(zone.id)}"`);
+  }
+  if (zone?.owner) {
+    dataAttributes.push(`data-zone-owner="${escapeHtml(zone.owner)}"`);
+  }
+
+  return `
+    <div class="${buttonClass}" ${dataAttributes.join(' ')}>
+      ${escapeHtml(zoneName)}
+    </div>
+  `;
+}
 
 export function createUserPreferencesComponent() {
   return `
@@ -23,20 +57,6 @@ export function createUserPreferencesComponent() {
             <div class="zones-list" id="zones-list">
               <!-- Fetched zones from database will be inserted here -->
               <div id="database-zones-container"></div>
-              
-              <!-- Hardcoded zones (shown below database zones) -->
-              <div class="zone-button zone-button-inactive" data-zone="1">
-                Zone 1
-              </div>
-              <div class="zone-button zone-button-inactive" data-zone="2">
-                Zone 2
-              </div>
-              <div class="zone-button zone-button-inactive" data-zone="3">
-                Zone 3
-              </div>
-              <div class="zone-button zone-button-inactive" data-zone="4">
-                Zone 4
-              </div>
               
               <button class="add-zone-button" id="add-zone-btn">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -138,5 +158,75 @@ export async function loadCropOptions() {
     }
   } catch (error) {
     console.error('Error in loadCropOptions:', error);
+  }
+}
+
+export async function loadUserZones() {
+  const zonesContainer = document.getElementById('database-zones-container');
+  if (!zonesContainer) {
+    console.warn('Zones container not found in DOM');
+    return;
+  }
+
+  zonesContainer.setAttribute('aria-busy', 'true');
+  zonesContainer.innerHTML = `
+    <div class="zone-button zone-button-inactive" data-loading="true">
+      Loading zones...
+    </div>
+  `;
+
+  try {
+    const profile = await getUserProfile();
+
+    if (!profile) {
+      zonesContainer.innerHTML = `
+        <div class="zone-button zone-button-inactive" data-empty="true">
+          Sign in to view your zones
+        </div>
+      `;
+      return;
+    }
+
+    const { data: zones, error } = await supabase
+      .from('zones')
+      .select('id, name, crop_type, watering_amount_l, auto_irrigation_enabled, owner')
+      .eq('owner', profile.id);
+
+    if (error) {
+      throw error;
+    }
+
+    const userZones = zones || [];
+
+    if (userZones.length === 0) {
+      zonesContainer.innerHTML = `
+        <div class="zone-button zone-button-inactive" data-empty="true">
+          No zones saved yet
+        </div>
+      `;
+      return;
+    }
+
+    userZones.sort((a, b) => {
+      const nameA = (a?.name || '').toLowerCase();
+      const nameB = (b?.name || '').toLowerCase();
+      if (nameA === nameB) return 0;
+      if (!nameA) return 1;
+      if (!nameB) return -1;
+      return nameA.localeCompare(nameB);
+    });
+
+    zonesContainer.innerHTML = userZones
+      .map((zone, index) => createZoneButtonMarkup(zone, index))
+      .join('');
+  } catch (error) {
+    console.error('Error loading user zones:', error);
+    zonesContainer.innerHTML = `
+      <div class="zone-button zone-button-inactive" data-error="true">
+        Unable to load zones
+      </div>
+    `;
+  } finally {
+    zonesContainer.removeAttribute('aria-busy');
   }
 }
