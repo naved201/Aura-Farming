@@ -3086,6 +3086,100 @@
   align-items: center;
 }
 
+/* Column selection controls for Upcoming & Imminent */
+.schedule-column-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-select-all-btn,
+.schedule-watered-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(102, 187, 106, 0.35);
+  background: rgba(102, 187, 106, 0.12);
+  color: rgba(29, 27, 32, 0.8);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.schedule-select-all-btn:hover,
+.schedule-watered-btn:hover:not(:disabled) {
+  background: rgba(102, 187, 106, 0.2);
+  border-color: rgba(102, 187, 106, 0.55);
+  transform: translateY(-1px);
+}
+
+.schedule-watered-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.schedule-select-all-btn svg,
+.schedule-watered-btn svg {
+  flex-shrink: 0;
+}
+
+.schedule-card-leading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-select-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.schedule-column.selection-active .schedule-select-checkbox-label {
+  display: flex;
+}
+
+.schedule-select-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.schedule-select-checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(102, 187, 106, 0.6);
+  border-radius: 4px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.schedule-select-checkbox:checked + .schedule-select-checkbox-custom {
+  background: linear-gradient(135deg, rgba(46, 125, 50, 0.95), rgba(76, 175, 80, 0.95));
+  border-color: rgba(46, 125, 50, 0.9);
+}
+
+.schedule-select-checkbox:checked + .schedule-select-checkbox-custom::after {
+  content: '✓';
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.schedule-select-checkbox-label:hover .schedule-select-checkbox-custom {
+  border-color: rgba(46, 125, 50, 0.9);
+  transform: scale(1.05);
+}
+
 .delayed-select-all-btn,
 .delayed-delete-btn {
   display: flex;
