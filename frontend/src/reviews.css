@@ -2824,12 +2824,52 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
   gap: 16px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, 
+    rgba(102, 187, 106, 0.08), 
+    rgba(76, 175, 80, 0.05));
+  border-radius: 12px;
+  border: 2px solid rgba(102, 187, 106, 0.2);
+  box-shadow: 0 2px 8px rgba(27, 94, 32, 0.1);
+}
+
+.watering-schedule-title-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+}
+
+.watering-schedule-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, rgba(102, 187, 106, 0.2), rgba(76, 175, 80, 0.15));
+  border-radius: 12px;
+  border: 2px solid rgba(102, 187, 106, 0.3);
+  flex-shrink: 0;
+  box-shadow: 
+    0 2px 8px rgba(27, 94, 32, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.watering-schedule-icon svg {
+  stroke: #2e7d32;
+  filter: drop-shadow(0 2px 4px rgba(76, 175, 80, 0.3));
+}
+
+.watering-schedule-title-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .watering-schedule-title {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   background: linear-gradient(135deg, #2e7d32, #4caf50, #66bb6a);
   -webkit-background-clip: text;
@@ -2839,7 +2879,16 @@
   text-align: left;
   letter-spacing: 0.5px;
   padding: 0;
-  flex: 1;
+  line-height: 1.2;
+}
+
+.watering-schedule-subtitle {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(29, 27, 32, 0.6);
+  margin: 0;
+  padding: 0;
+  letter-spacing: 0.3px;
 }
 
 .halt-queue-button {

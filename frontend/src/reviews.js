@@ -751,7 +751,17 @@ export function createReviewsComponent() {
           <!-- Watering Schedule Columns Section -->
           <div class="watering-schedule-section">
             <div class="watering-schedule-header">
-              <h2 class="watering-schedule-title">Watering Schedule</h2>
+              <div class="watering-schedule-title-group">
+                <div class="watering-schedule-icon">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+                  </svg>
+                </div>
+                <div class="watering-schedule-title-text">
+                  <h2 class="watering-schedule-title">General Watering Schedule</h2>
+                  <p class="watering-schedule-subtitle">All zones unified schedule</p>
+                </div>
+              </div>
               <button class="halt-queue-button" id="halt-queue-btn" aria-label="Halt All Watering">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="6" y="6" width="12" height="12" rx="2"/>
