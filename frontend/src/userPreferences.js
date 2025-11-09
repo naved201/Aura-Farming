@@ -1,3 +1,5 @@
+import { supabase } from './config.js';
+
 export function createUserPreferencesComponent() {
   return `
     <div class="reviews-container">
@@ -53,7 +55,10 @@ export function createUserPreferencesComponent() {
               
               <div class="form-field">
                 <label for="crop-type">Crop</label>
-                <input type="text" id="crop-type" class="form-input" placeholder="Select crop type">
+                <select id="crop-type" class="form-input form-select">
+                  <option value="">Select crop type</option>
+                  <!-- Crop options will be loaded dynamically from Supabase -->
+                </select>
               </div>
               
               <div class="form-field">
@@ -83,4 +88,55 @@ export function createUserPreferencesComponent() {
       </div>
     </div>
   `;
+}
+
+/**
+ * Fetch crop names from Supabase thresholds table and populate dropdown
+ */
+export async function loadCropOptions() {
+  try {
+    const cropSelect = document.getElementById('crop-type');
+    if (!cropSelect) {
+      console.error('Crop select element not found');
+      return;
+    }
+
+    // Fetch crops from Supabase thresholds table
+    const { data, error } = await supabase
+      .from('thresholds')
+      .select('crop_name')
+      .order('crop_name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching crops from Supabase:', error);
+      // Show error in dropdown
+      const errorOption = document.createElement('option');
+      errorOption.value = '';
+      errorOption.textContent = 'Error loading crops';
+      cropSelect.appendChild(errorOption);
+      return;
+    }
+
+    // Clear existing options (except the first "Select crop type" option)
+    cropSelect.innerHTML = '<option value="">Select crop type</option>';
+
+    // Populate dropdown with crop names
+    if (data && data.length > 0) {
+      data.forEach(crop => {
+        const option = document.createElement('option');
+        option.value = crop.crop_name;
+        option.textContent = crop.crop_name.charAt(0).toUpperCase() + crop.crop_name.slice(1); // Capitalize first letter
+        cropSelect.appendChild(option);
+      });
+      console.log(`✅ Loaded ${data.length} crops into dropdown`);
+    } else {
+      console.warn('No crops found in thresholds table');
+      const noCropsOption = document.createElement('option');
+      noCropsOption.value = '';
+      noCropsOption.textContent = 'No crops available';
+      cropSelect.appendChild(noCropsOption);
+    }
+  } catch (error) {
+    console.error('Error in loadCropOptions:', error);
+  }
 }

@@ -32,7 +32,12 @@ export function navigateTo(page) {
     }, 50);
   } else if (page === 'user-preferences') {
     contentArea.innerHTML = createUserPreferencesComponent();
-    setTimeout(() => setupUserPreferences(), 50);
+    setTimeout(async () => {
+      setupUserPreferences();
+      // Load crop options from Supabase
+      const { loadCropOptions } = await import('./userPreferences.js');
+      loadCropOptions();
+    }, 50);
   } else if (page === 'crop-management') {
     contentArea.innerHTML = createCropManagementComponent();
   }
@@ -165,17 +170,18 @@ export function setupUserPreferences() {
     });
   }
 
-  // Handle crop type input
+  // Handle crop type select dropdown
   const cropTypeInput = document.getElementById('crop-type');
   if (cropTypeInput) {
-    cropTypeInput.addEventListener('input', (e) => {
+    // Use 'change' event for select dropdown (works better than 'input')
+    cropTypeInput.addEventListener('change', (e) => {
       const value = e.target.value.trim();
       formData.cropType = value;
       
-      // Validation: Check if crop type is entered
+      // Validation: Check if crop type is selected
       if (value.length > 0) {
         cropTypeInput.style.borderColor = '#4caf50'; // Green border when valid
-        console.log('Crop type:', value);
+        console.log('Crop type selected:', value);
       } else {
         cropTypeInput.style.borderColor = 'rgba(102, 187, 106, 0.35)'; // Reset to default
       }
