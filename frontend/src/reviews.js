@@ -50,17 +50,15 @@ function generateScheduleCardHTML(schedule, index, category) {
   const timeUntilSeconds = Math.floor((schedule.scheduledTime.getTime() - Date.now()) / 1000);
   const timeUntilMinutes = Math.floor(timeUntilSeconds / 60);
   
-  // Determine status badge based on category
+  // Determine status badge and class based on category
   let statusBadge = 'Upcoming';
-  let statusClass = '';
+  let statusClass = 'schedule-upcoming';
+  
   if (category === 'delayed') {
-    statusBadge = 'Delayed';
+    statusBadge = 'Overdue';
     statusClass = 'schedule-delayed';
-  } else if (category === 'user-pushed') {
-    statusBadge = 'Pushed';
-    statusClass = 'schedule-user-pushed';
   } else if (category === 'imminent') {
-    statusBadge = 'Imminent';
+    statusBadge = 'Urgent';
     statusClass = 'schedule-imminent';
   } else if (category === 'upcoming') {
     statusBadge = 'Upcoming';
@@ -68,12 +66,14 @@ function generateScheduleCardHTML(schedule, index, category) {
   }
   
   return `
-    <div class="schedule-card ${statusClass}" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
+    <div class="schedule-card ${statusClass} draggable" draggable="true" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}" data-index="${index}" data-category="${category}">
       <div class="schedule-card-header">
-        <label class="zone-disable-checkbox-label">
-          <input type="checkbox" class="zone-disable-checkbox" data-zone="${schedule.zone}" checked>
-          <span class="checkbox-custom"></span>
+        ${category === 'delayed' ? `
+        <label class="delayed-checkbox-label">
+          <input type="checkbox" class="delayed-checkbox" data-zone="${schedule.zone}" data-scheduled-time="${schedule.scheduledTime.getTime()}">
+          <span class="delayed-checkbox-custom"></span>
         </label>
+        ` : '<div class="schedule-drag-handle">⋮⋮</div>'}
         <span class="schedule-zone-name">${schedule.zone}</span>
         <span class="schedule-status-badge">${statusBadge}</span>
       </div>
@@ -110,9 +110,7 @@ function generateScheduleCards() {
       allSchedules.push({
         zone: zoneName,
         scheduledTime: schedule.scheduledTime,
-        duration: schedule.duration,
-        delayed: schedule.delayed || false,
-        userPushed: schedule.userPushed || false
+        duration: schedule.duration
       });
     });
   });
@@ -120,28 +118,25 @@ function generateScheduleCards() {
   const now = Date.now();
   const FIVE_MINUTES_MS = 5 * 60 * 1000;
   
-  // Categorize schedules
+  // Categorize schedules into 3 logical columns
   const categories = {
-    upcoming: [],      // > 5 minutes away
-    imminent: [],      // <= 5 minutes
-    delayed: [],       // Time passed but not completed/delayed
-    userPushed: []     // User-pushed for incomplete
+    upcoming: [],      // More than 5 minutes away
+    imminent: [],      // Within 5 minutes (urgent)
+    delayed: []        // Past scheduled time (overdue)
   };
   
   allSchedules.forEach((schedule, index) => {
     const timeUntil = schedule.scheduledTime.getTime() - now;
     const timeUntilMinutes = timeUntil / (60 * 1000);
     
-    if (schedule.userPushed) {
-      categories.userPushed.push({ ...schedule, index, category: 'user-pushed' });
-    } else if (timeUntil < 0) {
-      // Time has passed
+    if (timeUntil < 0) {
+      // Time has passed - overdue
       categories.delayed.push({ ...schedule, index, category: 'delayed' });
     } else if (timeUntilMinutes <= 5) {
-      // <= 5 minutes
+      // Within 5 minutes - urgent
       categories.imminent.push({ ...schedule, index, category: 'imminent' });
     } else {
-      // > 5 minutes
+      // More than 5 minutes away - upcoming
       categories.upcoming.push({ ...schedule, index, category: 'upcoming' });
     }
   });
@@ -159,9 +154,9 @@ function generateScheduleCards() {
           <h3 class="schedule-column-title">Upcoming</h3>
           <span class="schedule-column-count">${categories.upcoming.length}</span>
         </div>
-        <div class="schedule-column-content">
+        <div class="schedule-column-content" data-drop-zone="upcoming">
           ${categories.upcoming.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'upcoming')).join('')}
-          ${categories.upcoming.length === 0 ? '<div class="schedule-empty-message">No upcoming schedules</div>' : ''}
+          ${categories.upcoming.length === 0 ? '<div class="schedule-empty-message">Drop cards here</div>' : ''}
         </div>
       </div>
       
@@ -170,31 +165,38 @@ function generateScheduleCards() {
           <h3 class="schedule-column-title">Imminent (≤5 min)</h3>
           <span class="schedule-column-count">${categories.imminent.length}</span>
         </div>
-        <div class="schedule-column-content">
+        <div class="schedule-column-content" data-drop-zone="imminent">
           ${categories.imminent.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'imminent')).join('')}
-          ${categories.imminent.length === 0 ? '<div class="schedule-empty-message">No imminent schedules</div>' : ''}
+          ${categories.imminent.length === 0 ? '<div class="schedule-empty-message">Drop cards here</div>' : ''}
         </div>
       </div>
       
       <div class="schedule-column" data-category="delayed">
         <div class="schedule-column-header">
-          <h3 class="schedule-column-title">Delayed</h3>
-          <span class="schedule-column-count">${categories.delayed.length}</span>
+          <div class="schedule-column-title-group">
+            <h3 class="schedule-column-title">Delayed (Overdue)</h3>
+            <span class="schedule-column-count">${categories.delayed.length}</span>
+          </div>
+          <div class="delayed-actions">
+            <button class="delayed-select-all-btn" aria-label="Select All Delayed">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="9 11 12 14 22 4"></polyline>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+              </svg>
+              <span>Select All</span>
+            </button>
+            <button class="delayed-delete-btn" aria-label="Delete Selected" disabled>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              <span>Delete</span>
+            </button>
+          </div>
         </div>
-        <div class="schedule-column-content">
+        <div class="schedule-column-content" data-drop-zone="delayed">
           ${categories.delayed.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'delayed')).join('')}
-          ${categories.delayed.length === 0 ? '<div class="schedule-empty-message">No delayed schedules</div>' : ''}
-        </div>
-      </div>
-      
-      <div class="schedule-column" data-category="user-pushed">
-        <div class="schedule-column-header">
-          <h3 class="schedule-column-title">User Pushed</h3>
-          <span class="schedule-column-count">${categories.userPushed.length}</span>
-        </div>
-        <div class="schedule-column-content">
-          ${categories.userPushed.map((schedule, idx) => generateScheduleCardHTML(schedule, idx, 'user-pushed')).join('')}
-          ${categories.userPushed.length === 0 ? '<div class="schedule-empty-message">No user-pushed schedules</div>' : ''}
+          ${categories.delayed.length === 0 ? '<div class="schedule-empty-message">Drop cards here</div>' : ''}
         </div>
       </div>
     </div>

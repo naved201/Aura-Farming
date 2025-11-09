@@ -2614,7 +2614,7 @@
 
 .schedule-columns-container {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
   width: 100%;
   box-sizing: border-box;
@@ -2642,10 +2642,6 @@
   background: rgba(244, 67, 54, 0.05);
 }
 
-.schedule-column[data-category="user-pushed"] {
-  border-color: rgba(156, 39, 176, 0.4);
-  background: rgba(156, 39, 176, 0.05);
-}
 
 .schedule-column-header {
   display: flex;
@@ -2654,6 +2650,13 @@
   padding: 12px 16px;
   background: linear-gradient(135deg, rgba(102, 187, 106, 0.15), rgba(76, 175, 80, 0.1));
   border-bottom: 2px solid rgba(102, 187, 106, 0.3);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.schedule-column-title-group {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
@@ -2667,10 +2670,6 @@
   border-bottom-color: rgba(244, 67, 54, 0.4);
 }
 
-.schedule-column[data-category="user-pushed"] .schedule-column-header {
-  background: linear-gradient(135deg, rgba(156, 39, 176, 0.2), rgba(142, 36, 170, 0.15));
-  border-bottom-color: rgba(156, 39, 176, 0.4);
-}
 
 .schedule-column-title {
   font-size: 16px;
@@ -2703,9 +2702,6 @@
   background: rgba(244, 67, 54, 0.4);
 }
 
-.schedule-column[data-category="user-pushed"] .schedule-column-count {
-  background: rgba(156, 39, 176, 0.4);
-}
 
 .schedule-column-content {
   flex: 1;
@@ -2735,6 +2731,103 @@
   background: rgba(102, 187, 106, 0.6);
 }
 
+/* Delayed column actions */
+.delayed-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.delayed-select-all-btn,
+.delayed-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+  background: rgba(244, 67, 54, 0.1);
+  color: rgba(29, 27, 32, 0.8);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.delayed-select-all-btn {
+  border-color: rgba(102, 187, 106, 0.4);
+  background: rgba(102, 187, 106, 0.1);
+}
+
+.delayed-select-all-btn:hover {
+  background: rgba(102, 187, 106, 0.2);
+  border-color: rgba(102, 187, 106, 0.6);
+  transform: translateY(-1px);
+}
+
+.delayed-delete-btn:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.6);
+  transform: translateY(-1px);
+}
+
+.delayed-delete-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.delayed-select-all-btn svg,
+.delayed-delete-btn svg {
+  flex-shrink: 0;
+}
+
+/* Delayed checkbox styles */
+.delayed-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.delayed-checkbox {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.delayed-checkbox-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(244, 67, 54, 0.6);
+  border-radius: 4px;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.delayed-checkbox:checked + .delayed-checkbox-custom {
+  background: linear-gradient(135deg, rgba(244, 67, 54, 0.9), rgba(229, 57, 53, 0.9));
+  border-color: rgba(244, 67, 54, 0.8);
+}
+
+.delayed-checkbox:checked + .delayed-checkbox-custom::after {
+  content: '✓';
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.delayed-checkbox-label:hover .delayed-checkbox-custom {
+  border-color: rgba(244, 67, 54, 0.8);
+  transform: scale(1.05);
+}
+
 .schedule-empty-message {
   text-align: center;
   padding: 24px;
@@ -2754,10 +2847,6 @@
   background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(229, 57, 53, 0.05));
 }
 
-.schedule-card.schedule-user-pushed {
-  border-color: rgba(156, 39, 176, 0.5);
-  background: linear-gradient(135deg, rgba(156, 39, 176, 0.1), rgba(142, 36, 170, 0.05));
-}
 
 .schedule-card.schedule-upcoming {
   border-color: rgba(102, 187, 106, 0.4);
@@ -2891,6 +2980,53 @@
   border-bottom: 2px solid rgba(102, 187, 106, 0.2);
   gap: 12px;
 }
+
+/* Drag handle */
+.schedule-drag-handle {
+  cursor: grab;
+  color: rgba(29, 27, 32, 0.4);
+  font-size: 16px;
+  line-height: 1;
+  user-select: none;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.schedule-drag-handle:active {
+  cursor: grabbing;
+}
+
+.schedule-card:hover .schedule-drag-handle {
+  color: rgba(29, 27, 32, 0.6);
+}
+
+/* Dragging state */
+.schedule-card.dragging {
+  opacity: 0.5;
+  transform: rotate(2deg);
+  cursor: grabbing;
+  z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+/* Drop zone states */
+.schedule-column-content.drag-over {
+  background: rgba(102, 187, 106, 0.1);
+  border: 2px dashed rgba(102, 187, 106, 0.5);
+  border-radius: 8px;
+  min-height: 100px;
+}
+
+.schedule-column[data-category="imminent"] .schedule-column-content.drag-over {
+  background: rgba(255, 152, 0, 0.1);
+  border-color: rgba(255, 152, 0, 0.5);
+}
+
+.schedule-column[data-category="delayed"] .schedule-column-content.drag-over {
+  background: rgba(244, 67, 54, 0.1);
+  border-color: rgba(244, 67, 54, 0.5);
+}
+
 
 .zone-disable-checkbox-label {
   display: flex;
