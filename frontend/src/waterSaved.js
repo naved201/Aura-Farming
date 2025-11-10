@@ -3,12 +3,17 @@ import { supabase } from './config.js';
 import { getCurrentUser } from './auth.js';
 
 /**
- * Calculate water saved using new formula:
- * y = (watering_amount_l * days_since_creation) - sum(inches_saved for that zone)
+ * Calculate water saved using new formula for ALL zones of a user:
+ * y = sum of [(watering_amount_l * days_since_creation) - sum(inches_saved)] for each zone
+ * 
+ * This calculates the total water saved across all zones by:
+ * 1. For each zone: (watering_amount_l * days_since_creation) - sum(inches_saved for that zone)
+ * 2. Sum all zone values to get total saved
  */
 function calcWaterSaved(zones, wateringActivities) {
   let totalSaved = 0;
   
+  // Process all zones for the user
   for (const zone of zones) {
     // Get watering_amount_l from zone (entered when zone was created)
     const wateringAmountL = zone.watering_amount_l || 0;
@@ -27,9 +32,10 @@ function calcWaterSaved(zones, wateringActivities) {
     
     // Calculate: (watering_amount_l * days_since_creation) - sum(inches_saved)
     const zoneSaved = (wateringAmountL * daysSinceCreation) - sumInchesSaved;
-    totalSaved += Math.max(0, zoneSaved); // Don't allow negative values
+    totalSaved += Math.max(0, zoneSaved); // Don't allow negative values, add to total
   }
   
+  // Return total saved across all zones
   return { saved_l: totalSaved };
 }
 

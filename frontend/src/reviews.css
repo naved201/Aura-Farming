@@ -318,19 +318,13 @@
   position: relative;
   flex-shrink: 0;
   font-size: 30px;
-  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 40%, #388e3c 70%, #4caf50 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  background-size: 200% 200%;
-  animation: gradient-shift 8s ease infinite;
+  color: #2e7d32;
   text-align: center;
   letter-spacing: 1px;
   width: 100%;
   white-space: nowrap;
   margin: 0;
-  text-shadow: 0 2px 10px rgba(46, 125, 50, 0.2);
-  filter: drop-shadow(0 2px 4px rgba(27, 94, 32, 0.25));
+  text-shadow: 0 1px 2px rgba(46, 125, 50, 0.15);
   transition: all 0.3s ease;
 }
 
@@ -4573,12 +4567,10 @@
 .water-saved-title {
   font-size: 20px;
   font-weight: 700;
-  background: linear-gradient(135deg, #2e7d32, #4caf50, #66bb6a);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #2e7d32;
   margin: 0;
   letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(46, 125, 50, 0.1);
 }
 
 .water-saved-info-btn {
