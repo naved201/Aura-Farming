@@ -1,4 +1,4 @@
-# Aura Farming
+# SOILution
 
 **A Smart IoT-Based Farming System for Real-Time Soil Moisture Monitoring and Water Management**
 
@@ -6,7 +6,7 @@
 
 ## Device Concept
 
-**Aura Farming** is an intelligent IoT-based agricultural monitoring system designed to optimize water usage and improve crop health through real-time soil moisture and rainfall monitoring. The system consists of:
+**SOILution** is an intelligent IoT-based agricultural monitoring system designed to optimize water usage and improve crop health through real-time soil moisture and rainfall monitoring. The system consists of:
 
 ### Hardware Components
 - **ESP32 Microcontroller** (LilyGo T-Display compatible) - The brain of the device
