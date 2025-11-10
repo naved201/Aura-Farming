@@ -1,0 +1,169 @@
+.login-container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #66bb6a 100%);
+}
+
+.login-container .auth-container {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 255, 249, 0.95) 100%);
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 20px 60px rgba(27, 94, 32, 0.3);
+  width: 100%;
+  max-width: 450px;
+  border: 2px solid rgba(102, 187, 106, 0.2);
+}
+
+.login-container h1 {
+  text-align: center;
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #66bb6a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 30px;
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.login-container .toggle-buttons {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  background: rgba(102, 187, 106, 0.1);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(102, 187, 106, 0.2);
+}
+
+.login-container .toggle-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.login-container .toggle-btn.active {
+  background: white;
+  color: #2e7d32;
+  box-shadow: 0 2px 4px rgba(46, 125, 50, 0.2);
+}
+
+.login-container .toggle-btn:hover:not(.active) {
+  color: #2e7d32;
+}
+
+.login-container .form-container {
+  display: none;
+}
+
+.login-container .form-container.active {
+  display: block;
+}
+
+.login-container h2 {
+  color: #2e7d32;
+  margin-bottom: 24px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.login-container .form-group {
+  margin-bottom: 20px;
+}
+
+.login-container label {
+  display: block;
+  margin-bottom: 8px;
+  color: #555;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.login-container input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid rgba(102, 187, 106, 0.35);
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(250, 255, 250, 0.95));
+  color: #000000;
+}
+
+.login-container input:focus {
+  outline: none;
+  border-color: #4caf50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+}
+
+.login-container .submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 50%, #66bb6a 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  margin-top: 10px;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.3);
+}
+
+.login-container .submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(46, 125, 50, 0.4);
+  background: linear-gradient(135deg, #2e7d32 0%, #4caf50 50%, #81c784 100%);
+}
+
+.login-container .submit-btn:active {
+  transform: translateY(0);
+}
+
+.login-container .submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-container .message {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  text-align: center;
+  display: none;
+}
+
+.login-container .message.success {
+  display: block;
+  background: rgba(76, 175, 80, 0.15);
+  color: #2e7d32;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.login-container .message.error {
+  display: block;
+  background: rgba(244, 67, 54, 0.15);
+  color: #c62828;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.login-container .message.info {
+  display: block;
+  background: rgba(102, 187, 106, 0.1);
+  color: #2e7d32;
+  border: 1px solid rgba(102, 187, 106, 0.3);
+}

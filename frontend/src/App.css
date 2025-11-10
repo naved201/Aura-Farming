@@ -1,0 +1,68 @@
+/* App Layout */
+.app-layout {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: linear-gradient(180deg, #f1f8f4 0%, #e8f5e9 30%, #c8e6c9 70%, #a5d6a7 100%);
+  background-size: 100% 200%;
+  animation: gradient-shift 25s ease infinite;
+  scroll-behavior: smooth;
+  position: relative;
+}
+
+.app-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(102, 187, 106, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 90% 80%, rgba(41, 182, 246, 0.06) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.app-content::-webkit-scrollbar-track {
+  background: rgba(46, 125, 50, 0.1);
+  border-radius: 5px;
+}
+
+.app-content::-webkit-scrollbar-thumb {
+  background: var(--gradient-nature);
+  border-radius: 5px;
+  box-shadow: 0 2px 4px rgba(46, 125, 50, 0.3);
+}
+
+.app-content::-webkit-scrollbar-thumb:hover {
+  background: var(--gradient-success);
+}
+
+.water-page {
+  padding: 24px;
+  font-family: 'Roboto', sans-serif;
+}
+
+.water-page h1 {
+  font-size: 32px;
+  color: var(--schemes-on-surface, #1d1b20);
+  margin-bottom: 16px;
+}
+
+.water-page p {
+  font-size: 16px;
+  color: var(--schemes-on-surface, #1d1b20);
+}
+
