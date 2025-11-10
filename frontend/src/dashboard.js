@@ -153,12 +153,6 @@ function generateZoneHTML(zone, index) {
               <p class="data-value">--</p>
             </div>
           </div>
-          <div class="data-panel">
-            <h4 class="data-panel-title">Rainfall</h4>
-            <div class="data-panel-content">
-              <p class="data-value">--</p>
-            </div>
-          </div>
           <div class="data-panel soil-health-indicator-panel" id="zone-${zoneId}-soil-health-indicator">
             <h4 class="data-panel-title">Soil health</h4>
             <div class="data-panel-content">
@@ -349,20 +343,7 @@ function updateZoneDisplay(zoneWrapper, telemetry) {
     moistureValueElement.textContent = `${telemetry.moisture.toFixed(1)}%`;
   }
 
-  // Find rainfall panel
-  let rainfallValueElement = null;
-  dataPanels.forEach(panel => {
-    const title = panel.querySelector('.data-panel-title');
-    if (title && title.textContent.trim() === 'Rainfall') {
-      rainfallValueElement = panel.querySelector('.data-value');
-    }
-  });
-
-  // Update rainfall
-  if (rainfallValueElement && telemetry.rain !== null && telemetry.rain !== undefined) {
-    // rain is boolean, display "Yes" or "No"
-    rainfallValueElement.textContent = telemetry.rain ? 'Yes' : 'No';
-  }
+  // Rainfall panel removed - no longer displayed on dashboard
 }
 
 /**

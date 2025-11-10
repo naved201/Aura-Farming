@@ -6,7 +6,7 @@ export function createLoginPage() {
   return `
     <div class="login-container">
       <div class="auth-container">
-        <h1>Aura Farming</h1>
+        <h1>SOILution</h1>
         
         <!-- Toggle between Sign Up and Login -->
         <div class="toggle-buttons">
