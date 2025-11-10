@@ -448,13 +448,6 @@ export function createReviewsComponent() {
             <div class="water-saved-card" id="water-saved-card">
               <div class="water-saved-header">
                 <h2 class="water-saved-title">Water saved</h2>
-                <button class="water-saved-info-btn" title="Baseline is what a fixed schedule would have watered, based on your zone defaults. Actual is what we irrigated." aria-label="Info">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="16" x2="12" y2="12"/>
-                    <line x1="12" y1="8" x2="12.01" y2="8"/>
-                  </svg>
-                </button>
               </div>
               <div class="water-saved-content" id="water-saved-content">
                 <div class="water-saved-loading">Loading...</div>

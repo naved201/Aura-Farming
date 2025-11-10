@@ -581,7 +581,7 @@
   animation: wiggle 3s ease-in-out infinite;
 }
 
-/* Water litres icon (third field) */
+/* Water inches icon (third field) */
 .form-field:nth-of-type(3) label::before {
   content: '💧';
   position: absolute;

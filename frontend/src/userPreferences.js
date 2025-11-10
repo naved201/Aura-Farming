@@ -82,8 +82,8 @@ export function createUserPreferencesComponent() {
               </div>
               
               <div class="form-field">
-                <label for="water-volume">Litres of water</label>
-                <input type="number" id="water-volume" class="form-input" placeholder="Enter litres">
+                <label for="water-volume">Inches of water</label>
+                <input type="number" id="water-volume" class="form-input" placeholder="Enter inches" step="0.1">
               </div>
               
               <div class="form-field">

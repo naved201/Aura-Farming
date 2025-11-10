@@ -253,10 +253,10 @@ export function setupUserPreferences() {
       const value = parseFloat(e.target.value);
       formData.waterVolume = value;
       
-      // Validation: Check if it's a valid positive number
+      // Validation: Check if it's a valid positive number (allow decimals)
       if (!isNaN(value) && value > 0) {
         waterVolumeInput.style.borderColor = '#4caf50'; // Green border when valid
-        console.log('Water volume:', value, 'litres');
+        console.log('Water volume:', value, 'inches');
       } else if (e.target.value === '') {
         waterVolumeInput.style.borderColor = 'rgba(102, 187, 106, 0.35)'; // Reset to default
         formData.waterVolume = '';
@@ -266,7 +266,7 @@ export function setupUserPreferences() {
       }
     });
 
-    // Prevent negative numbers
+    // Prevent negative numbers (but allow decimals)
     waterVolumeInput.addEventListener('keydown', (e) => {
       if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
         e.preventDefault();
@@ -331,7 +331,7 @@ export function setupUserPreferences() {
       }
       
       if (!formData.waterVolume || formData.waterVolume <= 0) {
-        alert('Please enter a valid water volume (greater than 0)');
+        alert('Please enter a valid water amount in inches (must be greater than 0)');
         waterVolumeInput?.focus();
         return;
       }
@@ -430,7 +430,7 @@ export function setupUserPreferences() {
         }
 
         // Success!
-        alert(`Zone "${formData.zoneName}" saved successfully!\nCrop: ${formData.cropType}\nWater: ${formData.waterVolume}L\nSoil Depth: ${formData.frequency} inches\nAutomate: ${formData.automate ? 'Yes' : 'No'}`);
+        alert(`Zone "${formData.zoneName}" saved successfully!\nCrop: ${formData.cropType}\nWater: ${formData.waterVolume} inches\nSoil Depth: ${formData.frequency} inches\nAutomate: ${formData.automate ? 'Yes' : 'No'}`);
         
         // Clear form after successful save
         if (zoneNameInput) zoneNameInput.value = '';

@@ -681,8 +681,8 @@ async function loadWateringAlerts() {
               </div>
             </div>
             <div class="alert-item-action">
-              <button class="alert-action-btn" data-zone-id="${suggestion.zoneId}">
-                View Zone
+              <button class="alert-action-btn" data-zone-id="${suggestion.zoneId}" data-water-inches="${suggestion.waterInches !== null && suggestion.waterInches !== undefined ? suggestion.waterInches : ''}">
+                Start sprinklers
               </button>
             </div>
           </div>
@@ -700,17 +700,100 @@ async function loadWateringAlerts() {
       });
     }
 
-    // Add click handlers for "View Zone" buttons
-    const viewZoneButtons = alertBanner.querySelectorAll('.alert-action-btn');
-    viewZoneButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
+    // Add click handlers for "Start sprinklers" buttons
+    const startSprinklerButtons = alertBanner.querySelectorAll('.alert-action-btn');
+    startSprinklerButtons.forEach(btn => {
+      btn.addEventListener('click', async (e) => {
         const zoneId = btn.getAttribute('data-zone-id');
-        // Scroll to the zone in the carousel
-        scrollToZone(zoneId);
-        // Optionally expand the zone's graph
-        const graphToggle = document.querySelector(`.zone-graph-toggle[data-zone-id="${zoneId}"]`);
-        if (graphToggle) {
-          graphToggle.click();
+        const waterInchesStr = btn.getAttribute('data-water-inches');
+        const waterInches = waterInchesStr ? parseFloat(waterInchesStr) : null;
+        
+        // Disable button and show loading state
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Starting...';
+        
+        try {
+          // Get current user for authentication
+          const user = await getCurrentUser();
+          if (!user) {
+            throw new Error('User not authenticated');
+          }
+          
+          // Prepare data for insertion
+          const insertData = {
+            zone_id: zoneId,
+            inches_saved: waterInches !== null && !isNaN(waterInches) ? waterInches : null
+          };
+          
+          // Insert into watering_activity table
+          const { data, error } = await supabase
+            .from('watering_activity')
+            .insert(insertData)
+            .select();
+          
+          if (error) {
+            throw error;
+          }
+          
+          // Success - update button to show success state
+          btn.textContent = 'Started! ✓';
+          btn.classList.add('sprinkler-started');
+          
+          // Log success
+          console.log('Watering activity started:', data);
+          
+          // Show success message with water amount
+          const waterAmountText = waterInches !== null && !isNaN(waterInches) && waterInches > 0 
+            ? `${waterInches.toFixed(2)} inches` 
+            : 'N/A';
+          alert(`Sprinklers started successfully!\n\nZone: ${zoneId}\nWater amount: ${waterAmountText}`);
+          
+          // Remove the alert item from the DOM
+          const alertItem = btn.closest('.alert-item');
+          if (alertItem) {
+            // Animate out
+            alertItem.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+            alertItem.style.opacity = '0';
+            alertItem.style.transform = 'translateX(-20px)';
+            
+            setTimeout(() => {
+              alertItem.remove();
+              
+              // Check if there are any remaining alerts
+              const remainingAlerts = alertBanner.querySelectorAll('.alert-item');
+              if (remainingAlerts.length === 0) {
+                // Hide the entire alert banner if no alerts remain
+                alertBanner.style.transition = 'opacity 0.3s ease-out';
+                alertBanner.style.opacity = '0';
+                setTimeout(() => {
+                  alertsContainer.style.display = 'none';
+                  alertBanner.remove();
+                }, 300);
+              }
+            }, 300);
+          }
+          
+          // Reload water saved card to reflect the new watering activity
+          const { setupWaterSavedCard } = await import('./waterSaved.js');
+          setupWaterSavedCard();
+          
+        } catch (error) {
+          console.error('Error starting sprinklers:', error);
+          
+          // Show error state
+          btn.textContent = 'Error!';
+          btn.classList.add('sprinkler-error');
+          
+          // Show error message
+          alert(`Error starting sprinklers: ${error.message}\n\nPlease check:\n1. You are logged in\n2. The zone exists\n3. Row Level Security allows INSERT`);
+          
+          // Reset button after error
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            btn.classList.remove('sprinkler-error');
+          }, 3000);
         }
       });
     });

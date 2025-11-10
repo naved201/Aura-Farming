@@ -1825,6 +1825,23 @@
   transform: translateY(0);
 }
 
+.alert-action-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.alert-action-btn.sprinkler-started {
+  background: #4caf50;
+  color: white;
+  border-color: #4caf50;
+}
+
+.alert-action-btn.sprinkler-error {
+  background: #f44336;
+  color: white;
+  border-color: #f44336;
+}
+
 /* Zone Status Card Background Colors - Matching schedule column styles */
 .zone-status-critical {
   background: rgba(244, 67, 54, 0.12) !important;
@@ -4605,10 +4622,7 @@
 .water-saved-primary-stat {
   font-size: 32px;
   font-weight: 800;
-  background: linear-gradient(135deg, #2196F3, #64B5F6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #4caf50;
   text-align: center;
   line-height: 1.2;
 }
