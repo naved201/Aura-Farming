@@ -97,7 +97,7 @@
 
 
 ### Presentation Materials
-- **PowerPoint/PDF**: 
-- **Demo Video**: 
+- **PowerPoint**: https://www.canva.com/design/DAG4K3MFRx8/GGAQDO1YTTkLFNFo_fofOg/edit?utm_content=DAG4K3MFRx8&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+- **Demo Video**: https://drive.google.com/file/d/1CyTQgZPHHtguUsJDdUsyZ5n6vxuXxlrV/view
 
 
