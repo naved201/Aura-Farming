@@ -68,7 +68,7 @@ export function setupDashboard() {
     setupZoneInformationToggles();
     
     // Setup zone schedule toggles
-    setupZoneScheduleToggles();
+    // setupZoneScheduleToggles(); // Removed - View Zone Schedule section disabled
   });
 }
 
@@ -153,12 +153,6 @@ function generateZoneHTML(zone, index) {
               <p class="data-value">--</p>
             </div>
           </div>
-          <div class="data-panel">
-            <h4 class="data-panel-title">Rainfall</h4>
-            <div class="data-panel-content">
-              <p class="data-value">--</p>
-            </div>
-          </div>
           <div class="data-panel soil-health-indicator-panel" id="zone-${zoneId}-soil-health-indicator">
             <h4 class="data-panel-title">Soil health</h4>
             <div class="data-panel-content">
@@ -178,20 +172,14 @@ function generateZoneHTML(zone, index) {
             <path d="M6 9l6 6 6-6"/>
           </svg>
         </button>
-        <button class="zone-schedule-toggle" data-zone-id="${zoneId}" aria-label="Toggle ${zoneName} Schedule">
-          <span class="zone-schedule-toggle-text">View Zone Schedule</span>
-          <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </button>
       </div>
       <div class="zone-graph-section" data-zone-id="${zoneId}">
         <div class="zone-graph-section-inner">
           <div class="zone-graph-container">
             <canvas class="zone-moisture-graph" data-zone-id="${zoneId}"></canvas>
             <div class="graph-axes">
-              <div class="graph-y-axis">Moisture</div>
-              <div class="graph-x-axis">Hours</div>
+              <div class="graph-y-axis">Moisture (%)</div>
+              <div class="graph-x-axis">Readings</div>
             </div>
           </div>
           <div class="graph-legend" id="graph-legend-${zoneId}">
@@ -212,20 +200,19 @@ function generateZoneHTML(zone, index) {
           <div class="zone-soil-health-details" id="zone-${zoneId}-soil-health-details">
             <p class="soil-health-explanation">--</p>
           </div>
-          <div class="zone-threshold-crossings" id="zone-${zoneId}-threshold-crossings" style="display: none;">
+          <div class="zone-threshold-crossings" id="zone-${zoneId}-threshold-crossings">
             <div class="threshold-crossings-header">
               <h5 class="threshold-crossings-title">Threshold Crossings</h5>
+              <p class="threshold-crossings-subtitle">Count of times moisture crossed above maximum or below minimum thresholds</p>
             </div>
             <div class="threshold-crossings-content" id="zone-${zoneId}-threshold-crossings-content">
-              <!-- Will be populated dynamically -->
+              <div class="threshold-crossing-item threshold-crossing-loading">
+                <div class="threshold-crossing-icon">⏳</div>
+                <div class="threshold-crossing-details">
+                  <div class="threshold-crossing-count">Loading threshold crossing data...</div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-      <div class="zone-schedule-section" data-zone-id="${zoneId}">
-        <div class="zone-schedule-section-inner">
-          <div class="zone-individual-schedule" id="zone-${zoneId}-schedule-columns">
-            <!-- Schedule cards will be generated here -->
           </div>
         </div>
       </div>
@@ -245,10 +232,10 @@ async function loadZoneTelemetryData() {
       return;
     }
 
-    // Get all zones for the current user (include crop_type for threshold analysis)
+    // Get all zones for the current user (include crop_type and soil_inches for threshold analysis)
     const { data: zones, error: zonesError } = await supabase
       .from('zones')
-      .select('id, name, crop_type')
+      .select('id, name, crop_type, soil_inches')
       .eq('owner', user.id);
 
     if (zonesError) {
@@ -290,7 +277,7 @@ async function loadZoneTelemetryData() {
         
         // Analyze moisture status and update zone with status indicator
         if (zone.crop_type) {
-          analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type)
+          analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type, zone.soil_inches)
             .then(status => {
               updateZoneStatusIndicator(zoneWrapper, status);
             })
@@ -306,9 +293,22 @@ async function loadZoneTelemetryData() {
           // Calculate and update threshold crossings (separate from soil health)
           calculateThresholdCrossings(zone.id, zone.crop_type)
             .then(crossingsData => {
+              console.log(`[loadZoneTelemetryData] Threshold crossings data for zone ${zone.name}:`, crossingsData);
               updateThresholdCrossingsDisplay(zoneWrapper, crossingsData);
             })
-            .catch(err => console.error('Error calculating threshold crossings:', err));
+            .catch(err => {
+              console.error('Error calculating threshold crossings:', err);
+              // Show error state in display
+              updateThresholdCrossingsDisplay(zoneWrapper, {
+                crossingsAboveMax: 0,
+                crossingsBelowMin: 0,
+                maxMoisture: null,
+                minMoisture: null,
+                hasError: true,
+                errorType: 'error',
+                suggestions: []
+              });
+            });
         }
       } else {
         console.log(`Could not find zone element for zone ${zone.name} (${zone.id})`);
@@ -343,20 +343,7 @@ function updateZoneDisplay(zoneWrapper, telemetry) {
     moistureValueElement.textContent = `${telemetry.moisture.toFixed(1)}%`;
   }
 
-  // Find rainfall panel
-  let rainfallValueElement = null;
-  dataPanels.forEach(panel => {
-    const title = panel.querySelector('.data-panel-title');
-    if (title && title.textContent.trim() === 'Rainfall') {
-      rainfallValueElement = panel.querySelector('.data-value');
-    }
-  });
-
-  // Update rainfall
-  if (rainfallValueElement && telemetry.rain !== null && telemetry.rain !== undefined) {
-    // rain is boolean, display "Yes" or "No"
-    rainfallValueElement.textContent = telemetry.rain ? 'Yes' : 'No';
-  }
+  // Rainfall panel removed - no longer displayed on dashboard
 }
 
 /**
@@ -410,7 +397,6 @@ function updateSoilHealthDisplay(zoneWrapper, riskData) {
     // Remove all risk classes
     soilHealthIndicator.classList.remove(
       'soil-health-none',
-      'soil-health-low',
       'soil-health-moderate',
       'soil-health-high',
       'soil-health-unknown',
@@ -424,8 +410,6 @@ function updateSoilHealthDisplay(zoneWrapper, riskData) {
       let displayText = '--';
       if (riskData.risk === 'none') {
         displayText = 'Healthy';
-      } else if (riskData.risk === 'low') {
-        displayText = 'Low Risk';
       } else if (riskData.risk === 'moderate') {
         displayText = 'Moderate Risk';
       } else if (riskData.risk === 'high') {
@@ -455,7 +439,6 @@ function updateSoilHealthDisplay(zoneWrapper, riskData) {
       // Remove all risk classes to reset styling
       explanationElement.classList.remove(
         'soil-health-explanation-none',
-        'soil-health-explanation-low',
         'soil-health-explanation-moderate',
         'soil-health-explanation-high',
         'soil-health-explanation-unknown',
@@ -465,22 +448,19 @@ function updateSoilHealthDisplay(zoneWrapper, riskData) {
 
       let explanationText = '';
       if (riskData.risk === 'none') {
-        explanationText = 'Soil health is ideal.';
+        explanationText = 'Healthy - Soil moisture levels are within acceptable range.';
         explanationElement.classList.add('soil-health-explanation-none');
-      } else if (riskData.risk === 'low') {
-        explanationText = `Soil moisture has been above the maximum threshold for ${riskData.hoursAboveMax.toFixed(1)} hours.`;
-        explanationElement.classList.add('soil-health-explanation-low');
       } else if (riskData.risk === 'moderate') {
-        explanationText = `Soil moisture has been above the maximum threshold for ${riskData.hoursAboveMax.toFixed(1)} hours.`;
+        explanationText = riskData.message || `Moderate Risk - Soil moisture has been above the maximum threshold for ${riskData.hoursAboveMax.toFixed(1)} hours.`;
         explanationElement.classList.add('soil-health-explanation-moderate');
       } else if (riskData.risk === 'high') {
-        explanationText = `Soil moisture has been above the maximum threshold for ${riskData.hoursAboveMax.toFixed(1)} hours. Urgent action required!`;
+        explanationText = riskData.message || `High Risk - Soil moisture has been above the maximum threshold for ${riskData.hoursAboveMax.toFixed(1)} hours. Urgent action required!`;
         explanationElement.classList.add('soil-health-explanation-high');
       } else if (riskData.risk === 'unknown') {
         explanationText = 'Unable to assess soil health risk. Threshold data may be missing for this crop type.';
         explanationElement.classList.add('soil-health-explanation-unknown');
       } else if (riskData.risk === 'no_data') {
-        explanationText = 'Insufficient data to assess soil health risk. No telemetry data available for this zone.';
+        explanationText = riskData.message || 'Insufficient data to assess soil health risk. No telemetry data available for this zone.';
         explanationElement.classList.add('soil-health-explanation-no-data');
       } else if (riskData.risk === 'error') {
         explanationText = 'Error calculating soil health risk. Please try again later.';
@@ -498,20 +478,60 @@ function updateSoilHealthDisplay(zoneWrapper, riskData) {
  * Shows threshold crossing information in the Zone Information section
  */
 function updateThresholdCrossingsDisplay(zoneWrapper, crossingsData) {
-  if (!zoneWrapper || !crossingsData) return;
+  if (!zoneWrapper || !crossingsData) {
+    console.warn('[updateThresholdCrossingsDisplay] Missing zoneWrapper or crossingsData');
+    return;
+  }
 
   const zoneId = zoneWrapper.getAttribute('data-zone-id');
+  if (!zoneId) {
+    console.warn('[updateThresholdCrossingsDisplay] No zone ID found');
+    return;
+  }
+  
+  console.log(`[updateThresholdCrossingsDisplay] Updating threshold crossings for zone ${zoneId}:`, crossingsData);
   
   // Update threshold crossings section
   const thresholdCrossingsSection = document.getElementById(`zone-${zoneId}-threshold-crossings`);
   const thresholdCrossingsContent = document.getElementById(`zone-${zoneId}-threshold-crossings-content`);
   
-  if (thresholdCrossingsSection && thresholdCrossingsContent) {
-    // Always show the section (even if no crossings, to show healthy state)
-    thresholdCrossingsSection.style.display = 'block';
-    
-    let crossingsHTML = '';
-    
+  if (!thresholdCrossingsSection) {
+    console.warn(`[updateThresholdCrossingsDisplay] Threshold crossings section not found for zone ${zoneId}`);
+    return;
+  }
+  
+  if (!thresholdCrossingsContent) {
+    console.warn(`[updateThresholdCrossingsDisplay] Threshold crossings content not found for zone ${zoneId}`);
+    return;
+  }
+  
+  // Always show the section (it's part of Zone Information)
+  thresholdCrossingsSection.style.display = 'block';
+  
+  let crossingsHTML = '';
+  
+  // Handle calculation error state first
+  if (crossingsData.hasError && crossingsData.errorType === 'error') {
+    crossingsHTML = `
+      <div class="threshold-crossing-item threshold-crossing-error">
+        <div class="threshold-crossing-icon">❌</div>
+        <div class="threshold-crossing-details">
+          <div class="threshold-crossing-count">Error calculating threshold crossings. Please try again later.</div>
+        </div>
+      </div>
+    `;
+  }
+  // Check if we have threshold data
+  else if (crossingsData.maxMoisture === null || crossingsData.minMoisture === null) {
+    crossingsHTML = `
+      <div class="threshold-crossing-item threshold-crossing-no-data">
+        <div class="threshold-crossing-icon">ℹ️</div>
+        <div class="threshold-crossing-details">
+          <div class="threshold-crossing-count">No threshold data available for this crop type.</div>
+        </div>
+      </div>
+    `;
+  } else {
     // Show crossings above max
     if (crossingsData.crossingsAboveMax > 0) {
       crossingsHTML += `
@@ -549,16 +569,20 @@ function updateThresholdCrossingsDisplay(zoneWrapper, crossingsData) {
         </div>
       `;
     }
-    
-    thresholdCrossingsContent.innerHTML = crossingsHTML;
-    
-    // Show error alert if 3+ crossings
-    if (crossingsData.hasError) {
-      // Display error message similar to when moisture is below min_threshold
-      console.warn(`[Threshold Crossings] Error detected for zone ${zoneId}:`, crossingsData.suggestions);
-      // You can add a visual alert/notification here if needed
-    }
   }
+  
+  thresholdCrossingsContent.innerHTML = crossingsHTML;
+  
+  // Log error alerts if 3+ crossings (this is a threshold crossing error, not a calculation error)
+  if (crossingsData.hasError && crossingsData.errorType !== 'error' && crossingsData.suggestions && crossingsData.suggestions.length > 0) {
+    console.warn(`[Threshold Crossings] Threshold crossing error detected for zone ${zoneId}:`, crossingsData.suggestions);
+    // Log suggestions for debugging
+    crossingsData.suggestions.forEach(suggestion => {
+      console.warn(`[Threshold Crossings] Suggestion: ${suggestion}`);
+    });
+  }
+  
+  console.log(`[updateThresholdCrossingsDisplay] Successfully updated threshold crossings display for zone ${zoneId}`);
 }
 
 /**
@@ -625,8 +649,8 @@ async function loadWateringAlerts() {
               </div>
             </div>
             <div class="alert-item-action">
-              <button class="alert-action-btn" data-zone-id="${suggestion.zoneId}">
-                View Zone
+              <button class="alert-action-btn" data-zone-id="${suggestion.zoneId}" data-water-inches="${suggestion.waterInches !== null && suggestion.waterInches !== undefined ? suggestion.waterInches : ''}">
+                Start sprinklers
               </button>
             </div>
           </div>
@@ -644,17 +668,100 @@ async function loadWateringAlerts() {
       });
     }
 
-    // Add click handlers for "View Zone" buttons
-    const viewZoneButtons = alertBanner.querySelectorAll('.alert-action-btn');
-    viewZoneButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
+    // Add click handlers for "Start sprinklers" buttons
+    const startSprinklerButtons = alertBanner.querySelectorAll('.alert-action-btn');
+    startSprinklerButtons.forEach(btn => {
+      btn.addEventListener('click', async (e) => {
         const zoneId = btn.getAttribute('data-zone-id');
-        // Scroll to the zone in the carousel
-        scrollToZone(zoneId);
-        // Optionally expand the zone's graph
-        const graphToggle = document.querySelector(`.zone-graph-toggle[data-zone-id="${zoneId}"]`);
-        if (graphToggle) {
-          graphToggle.click();
+        const waterInchesStr = btn.getAttribute('data-water-inches');
+        const waterInches = waterInchesStr ? parseFloat(waterInchesStr) : null;
+        
+        // Disable button and show loading state
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Starting...';
+        
+        try {
+          // Get current user for authentication
+          const user = await getCurrentUser();
+          if (!user) {
+            throw new Error('User not authenticated');
+          }
+          
+          // Prepare data for insertion
+          const insertData = {
+            zone_id: zoneId,
+            inches_saved: waterInches !== null && !isNaN(waterInches) ? waterInches : null
+          };
+          
+          // Insert into watering_activity table
+          const { data, error } = await supabase
+            .from('watering_activity')
+            .insert(insertData)
+            .select();
+          
+          if (error) {
+            throw error;
+          }
+          
+          // Success - update button to show success state
+          btn.textContent = 'Started! ✓';
+          btn.classList.add('sprinkler-started');
+          
+          // Log success
+          console.log('Watering activity started:', data);
+          
+          // Show success message with water amount
+          const waterAmountText = waterInches !== null && !isNaN(waterInches) && waterInches > 0 
+            ? `${waterInches.toFixed(2)} inches` 
+            : 'N/A';
+          alert(`Sprinklers started successfully!\n\nZone: ${zoneId}\nWater amount: ${waterAmountText}`);
+          
+          // Remove the alert item from the DOM
+          const alertItem = btn.closest('.alert-item');
+          if (alertItem) {
+            // Animate out
+            alertItem.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+            alertItem.style.opacity = '0';
+            alertItem.style.transform = 'translateX(-20px)';
+            
+            setTimeout(() => {
+              alertItem.remove();
+              
+              // Check if there are any remaining alerts
+              const remainingAlerts = alertBanner.querySelectorAll('.alert-item');
+              if (remainingAlerts.length === 0) {
+                // Hide the entire alert banner if no alerts remain
+                alertBanner.style.transition = 'opacity 0.3s ease-out';
+                alertBanner.style.opacity = '0';
+                setTimeout(() => {
+                  alertsContainer.style.display = 'none';
+                  alertBanner.remove();
+                }, 300);
+              }
+            }, 300);
+          }
+          
+          // Reload water saved card to reflect the new watering activity
+          const { setupWaterSavedCard } = await import('./waterSaved.js');
+          setupWaterSavedCard();
+          
+        } catch (error) {
+          console.error('Error starting sprinklers:', error);
+          
+          // Show error state
+          btn.textContent = 'Error!';
+          btn.classList.add('sprinkler-error');
+          
+          // Show error message
+          alert(`Error starting sprinklers: ${error.message}\n\nPlease check:\n1. You are logged in\n2. The zone exists\n3. Row Level Security allows INSERT`);
+          
+          // Reset button after error
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = originalText;
+            btn.classList.remove('sprinkler-error');
+          }, 3000);
         }
       });
     });
@@ -2589,92 +2696,57 @@ function setupZoneDelayedCardsFunctionality(columnsWrapper, zoneNumber) {
 }
 
 /**
- * Fetch all moisture readings from Supabase for a specific zone from yesterday
- * Returns all readings from the start of yesterday to the end of yesterday
+ * Fetch all moisture readings from Supabase for a specific zone
+ * Returns all available readings (simplified - no time filtering)
  * Updates dynamically whenever the graph is opened
  */
 async function fetchHourlyMoistureData(zoneId) {
   try {
-    // Calculate yesterday in UTC (no timezone conversion)
-    const now = new Date();
-    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-    const startOfYesterday = new Date(todayUTC);
-    startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
+    console.log(`[fetchHourlyMoistureData] Fetching ALL telemetry data for zone ${zoneId}`);
     
-    const endOfYesterday = new Date(todayUTC);
-    
-    console.log(`Fetching data for zone ${zoneId}`);
-    console.log(`UTC - Start of yesterday: ${startOfYesterday.toISOString()}`);
-    console.log(`UTC - End of yesterday: ${endOfYesterday.toISOString()}`);
-    
-    // Fetch all telemetry data for this zone from yesterday (UTC)
+    // Fetch ALL telemetry data for this zone (no time restrictions)
+    // Limit to last 100 readings to avoid performance issues
     const { data: telemetryData, error } = await supabase
       .from('telemetry')
       .select('ts, moisture')
       .eq('zone_id', zoneId)
-      .gte('ts', startOfYesterday.toISOString())
-      .lt('ts', endOfYesterday.toISOString())
-      .order('ts', { ascending: true });
+      .not('moisture', 'is', null)
+      .order('ts', { ascending: true })
+      .limit(100); // Get last 100 readings
 
     if (error) {
-      console.error('Error fetching telemetry data:', error);
+      console.error(`[fetchHourlyMoistureData] Error fetching telemetry data:`, error);
       return [];
     }
 
     if (!telemetryData || telemetryData.length === 0) {
-      console.log(`No telemetry data found for zone ${zoneId} for yesterday`);
+      console.warn(`[fetchHourlyMoistureData] No telemetry data found for zone ${zoneId}`);
       return [];
     }
 
-    console.log(`Found ${telemetryData.length} total readings`);
+    console.log(`[fetchHourlyMoistureData] Found ${telemetryData.length} total readings`);
     if (telemetryData.length > 0) {
-      console.log(`First reading timestamp: ${telemetryData[0].ts}`);
-      console.log(`Last reading timestamp: ${telemetryData[telemetryData.length - 1].ts}`);
+      console.log(`[fetchHourlyMoistureData] First reading: ${telemetryData[0].ts}, moisture: ${telemetryData[0].moisture}%`);
+      console.log(`[fetchHourlyMoistureData] Last reading: ${telemetryData[telemetryData.length - 1].ts}, moisture: ${telemetryData[telemetryData.length - 1].moisture}%`);
     }
 
-    // Filter out readings with null/undefined moisture and convert to graph format
+    // Filter out readings with null/undefined moisture and convert to simple graph format
+    // Use index as x-position (0 to length-1) for simplicity
     const readingsArray = telemetryData
-      .filter(reading => reading.moisture !== null && reading.moisture !== undefined)
-      .map(reading => {
-        const readingDate = new Date(reading.ts);
-        // Calculate hours since start of yesterday in UTC
-        // This gives us the UTC hour of the day (0-23)
-        const hoursSinceStart = (readingDate.getTime() - startOfYesterday.getTime()) / (1000 * 60 * 60);
-        const hourOfDay = readingDate.getUTCHours(); // UTC hour
-        const minutes = readingDate.getUTCMinutes();
-        
+      .filter(reading => reading.moisture !== null && reading.moisture !== undefined && !isNaN(reading.moisture))
+      .map((reading, index) => {
         return {
-          hour: hoursSinceStart, // Hours since start of yesterday in UTC (0-24)
-          moisture: reading.moisture,
-          timestamp: readingDate,
-          hourOfDay: hourOfDay, // UTC hour of day (0-23)
-          minutes: minutes
+          index: index, // Simple index (0, 1, 2, ...)
+          moisture: parseFloat(reading.moisture), // Ensure it's a number
+          timestamp: new Date(reading.ts)
         };
-      })
-      .sort((a, b) => a.hour - b.hour); // Sort by time
+      });
 
-    console.log(`Processed ${readingsArray.length} valid readings`);
-    if (readingsArray.length > 0) {
-      const minHour = readingsArray[0].hour;
-      const maxHour = readingsArray[readingsArray.length - 1].hour;
-      console.log(`Hour range: ${minHour.toFixed(2)} to ${maxHour.toFixed(2)}`);
-      console.log(`First 3 readings:`, readingsArray.slice(0, 3).map(r => ({ 
-        hour: r.hour.toFixed(2), 
-        hourOfDay: r.hourOfDay, 
-        moisture: r.moisture,
-        timestamp: r.timestamp.toISOString()
-      })));
-      console.log(`Last 3 readings:`, readingsArray.slice(-3).map(r => ({ 
-        hour: r.hour.toFixed(2), 
-        hourOfDay: r.hourOfDay, 
-        moisture: r.moisture,
-        timestamp: r.timestamp.toISOString()
-      })));
-    }
-
+    console.log(`[fetchHourlyMoistureData] Processed ${readingsArray.length} valid readings`);
+    
     return readingsArray;
   } catch (error) {
-    console.error('Error in fetchHourlyMoistureData:', error);
+    console.error('[fetchHourlyMoistureData] Error:', error);
     return [];
   }
 }
@@ -2796,29 +2868,37 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
       }
 
       // Prepare data points from real readings
-      // hourlyReadings now contains all readings from yesterday, sorted by time
+      // hourlyReadings now contains all readings, sorted by time, with index as x-position
       const dataPoints = (hourlyReadings || []).map(reading => ({
-        hour: reading.hour, // This is fractional hours since start of yesterday (0-24)
-        moisture: reading.moisture,
-        timestamp: reading.timestamp,
-        hourOfDay: reading.hourOfDay,
-        minutes: reading.minutes
+        index: reading.index, // Simple index (0, 1, 2, ...)
+        moisture: reading.moisture, // Moisture percentage (0-100)
+        timestamp: reading.timestamp
       }));
 
-      // Always show full day range (0-23 hours) for a complete day
-      const minHour = 0;
-      const maxHour = 23;
-      const timeRange = 24; // 24 hours total (0-23)
       const numDataPoints = dataPoints.length;
+      
+      // If no data, show message and return early
+      if (numDataPoints === 0) {
+        ctx.fillStyle = '#999';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('No data available', width / 2, height / 2);
+        return;
+      }
 
-      // Draw vertical grid lines - show grid lines for each hour of the day (0-23)
-      for (let hour = 0; hour <= 23; hour++) {
-        // Calculate x position: hour 0 at left, hour 23 at right
-        const hourX = padding.left + (hour / 23) * graphWidth;
-        if (hourX >= padding.left && hourX <= width - padding.right) {
+      // Calculate min and max moisture for scaling
+      const minMoisture = Math.min(...dataPoints.map(p => p.moisture));
+      const maxMoisture = Math.max(...dataPoints.map(p => p.moisture));
+      const moistureRange = Math.max(1, maxMoisture - minMoisture); // Avoid division by zero
+
+      // Draw vertical grid lines - show grid lines evenly spaced
+      const numGridLines = Math.min(10, numDataPoints); // Show up to 10 grid lines
+      for (let i = 0; i <= numGridLines; i++) {
+        const gridX = padding.left + (i / numGridLines) * graphWidth;
+        if (gridX >= padding.left && gridX <= width - padding.right) {
           ctx.beginPath();
-          ctx.moveTo(hourX, padding.top);
-          ctx.lineTo(hourX, height - padding.bottom);
+          ctx.moveTo(gridX, padding.top);
+          ctx.lineTo(gridX, height - padding.bottom);
           ctx.stroke();
         }
       }
@@ -2893,27 +2973,17 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
         }
       }
 
-      // If no data, show a message or empty graph
-      if (dataPoints.length === 0) {
-        ctx.fillStyle = '#999';
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('No data available', width / 2, height / 2);
-        return;
-      }
-
       // Draw moisture line (only if we have more than one point)
       if (numDataPoints > 1) {
         // Use black color for the moisture line
         ctx.strokeStyle = '#000000'; // Black
         ctx.lineWidth = 2;
+        ctx.setLineDash([]); // Solid line
         ctx.beginPath();
         dataPoints.forEach((point, index) => {
-          // Calculate x position: hour 0 at left edge, hour 23 at right edge
-          // Clamp hour to 0-23 range for positioning
-          const clampedHour = Math.max(0, Math.min(23, point.hour));
-          const x = padding.left + (clampedHour / 23) * graphWidth;
-          // Moisture is already a percentage (0-100), clamp it to ensure it's within bounds
+          // Calculate x position based on index (0 to numDataPoints-1)
+          const x = padding.left + (point.index / (numDataPoints - 1)) * graphWidth;
+          // Moisture is already a percentage (0-100), use full scale
           const moisture = Math.max(0, Math.min(100, point.moisture));
           const y = height - padding.bottom - (moisture / 100) * graphHeight;
           if (index === 0) {
@@ -2924,10 +2994,9 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
         });
         ctx.stroke();
       } else if (numDataPoints === 1) {
-        // Draw a single point as a line
+        // Draw a single point as a dot
         const point = dataPoints[0];
-        const clampedHour = Math.max(0, Math.min(23, point.hour));
-        const x = padding.left + (clampedHour / 23) * graphWidth;
+        const x = padding.left + graphWidth / 2; // Center it
         const moisture = Math.max(0, Math.min(100, point.moisture));
         const y = height - padding.bottom - (moisture / 100) * graphHeight;
         ctx.strokeStyle = '#000000';
@@ -2940,9 +3009,8 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
 
       // Draw data points as circles (black)
       dataPoints.forEach((point) => {
-        // Calculate x position: hour 0 at left edge, hour 23 at right edge
-        const clampedHour = Math.max(0, Math.min(23, point.hour));
-        const x = padding.left + (clampedHour / 23) * graphWidth;
+        // Calculate x position based on index
+        const x = padding.left + (point.index / Math.max(1, numDataPoints - 1)) * graphWidth;
         const moisture = Math.max(0, Math.min(100, point.moisture));
         const y = height - padding.bottom - (moisture / 100) * graphHeight;
         
@@ -2958,22 +3026,31 @@ async function setupZoneMoistureGraph(canvas, zoneId) {
       ctx.font = '11px sans-serif';
       ctx.textAlign = 'center';
       
-      // X-axis labels (hours) - show hour labels for 0-23
-      // Show labels every 2-3 hours to avoid overcrowding
-      const labelInterval = 2; // Show every 2 hours: 0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22
-      for (let hour = 0; hour <= 23; hour += labelInterval) {
-        // Calculate x position: hour 0 at left, hour 23 at right
-        const hourX = padding.left + (hour / 23) * graphWidth;
-        if (hourX >= padding.left && hourX <= width - padding.right) {
-          ctx.fillText(hour.toString(), hourX, height - padding.bottom + 15);
+      // X-axis labels - show data point indices (readings)
+      // Show labels for first, middle, and last points
+      if (numDataPoints > 0) {
+        const labelsToShow = [];
+        if (numDataPoints === 1) {
+          labelsToShow.push(0);
+        } else if (numDataPoints <= 5) {
+          // Show all points if 5 or fewer
+          for (let i = 0; i < numDataPoints; i++) {
+            labelsToShow.push(i);
+          }
+        } else {
+          // Show first, middle points, and last
+          labelsToShow.push(0);
+          const middle = Math.floor(numDataPoints / 2);
+          labelsToShow.push(middle);
+          labelsToShow.push(numDataPoints - 1);
         }
-      }
-      // Also show hour 23 if it's not already included
-      if (23 % labelInterval !== 0) {
-        const hour23X = padding.left + (23 / 23) * graphWidth;
-        if (hour23X <= width - padding.right) {
-          ctx.fillText('23', hour23X, height - padding.bottom + 15);
-        }
+        
+        labelsToShow.forEach(idx => {
+          const x = padding.left + (idx / Math.max(1, numDataPoints - 1)) * graphWidth;
+          if (x >= padding.left && x <= width - padding.right) {
+            ctx.fillText(`#${idx + 1}`, x, height - padding.bottom + 15);
+          }
+        });
       }
 
       // Y-axis labels (moisture)

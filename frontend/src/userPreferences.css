@@ -220,10 +220,7 @@
 .preferences-subtitle {
   font-size: 28px;
   font-weight: 700;
-  background: linear-gradient(135deg, #1b5e20, #2e7d32, #4caf50, #66bb6a);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #2e7d32;
   margin: 0;
   text-align: center;
   position: relative;
@@ -231,6 +228,7 @@
   letter-spacing: 1px;
   text-transform: uppercase;
   font-family: 'Roboto', sans-serif;
+  text-shadow: 0 1px 2px rgba(46, 125, 50, 0.1);
 }
 
 .preferences-subtitle::after {
@@ -563,8 +561,17 @@
   padding-left: 28px;
 }
 
-/* Crop type icon */
+/* Zone name icon (first field) */
 .form-field:first-of-type label::before {
+  content: '📍';
+  position: absolute;
+  left: 0;
+  font-size: 20px;
+  animation: wiggle 3s ease-in-out infinite;
+}
+
+/* Crop type icon (second field) */
+.form-field:nth-of-type(2) label::before {
   content: '🌾';
   position: absolute;
   left: 0;
@@ -572,8 +579,8 @@
   animation: wiggle 3s ease-in-out infinite;
 }
 
-/* Water litres icon */
-.form-field:nth-of-type(2) label::before {
+/* Water inches icon (third field) */
+.form-field:nth-of-type(3) label::before {
   content: '💧';
   position: absolute;
   left: 0;
@@ -581,9 +588,9 @@
   animation: bounce 2s ease-in-out infinite;
 }
 
-/* Frequency icon */
-.form-field:nth-of-type(3) label::before {
-  content: '📅';
+/* Soil inches icon (fourth field) */
+.form-field:nth-of-type(4) label::before {
+  content: '🌱';
   position: absolute;
   left: 0;
   font-size: 20px;

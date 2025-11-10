@@ -3,24 +3,40 @@ import { supabase } from './config.js';
 import { getCurrentUser } from './auth.js';
 
 /**
- * Calculate water saved for a given period
+ * Calculate water saved using new formula for ALL zones of a user:
+ * y = sum of [(watering_amount_l * days_since_creation) - sum(inches_saved)] for each zone
+ * 
+ * This calculates the total water saved across all zones by:
+ * 1. For each zone: (watering_amount_l * days_since_creation) - sum(inches_saved for that zone)
+ * 2. Sum all zone values to get total saved
  */
-function calcWaterSaved(zones, events, period) {
-  const days = Math.max(1, Math.ceil((period.to.getTime() - period.from.getTime()) / 86400000));
+function calcWaterSaved(zones, wateringActivities) {
+  let totalSaved = 0;
   
-  const baseline = zones.reduce((sum, z) => {
-    const expectedEvents = (z.baseline_days_per_week ?? 7) * (days / 7);
-    return sum + (z.water_litres ?? 0) * expectedEvents;
-  }, 0);
+  // Process all zones for the user
+  for (const zone of zones) {
+    // Get watering_amount_l from zone (entered when zone was created)
+    const wateringAmountL = zone.watering_amount_l || 0;
+    
+    // Calculate days since zone creation
+    const createdAt = new Date(zone.created_at);
+    const now = new Date();
+    const daysSinceCreation = Math.max(1, Math.ceil((now.getTime() - createdAt.getTime()) / 86400000));
+    
+    // Sum all inches_saved for this zone from watering_activity table
+    const zoneActivities = wateringActivities.filter(activity => activity.zone_id === zone.id);
+    const sumInchesSaved = zoneActivities.reduce((sum, activity) => {
+      const inches = activity.inches_saved || 0;
+      return sum + inches;
+    }, 0);
+    
+    // Calculate: (watering_amount_l * days_since_creation) - sum(inches_saved)
+    const zoneSaved = (wateringAmountL * daysSinceCreation) - sumInchesSaved;
+    totalSaved += Math.max(0, zoneSaved); // Don't allow negative values, add to total
+  }
   
-  const actual = events
-    .filter(e => e.source !== 'skipped_due_to_rain')
-    .reduce((s, e) => s + (e.litres ?? 0), 0);
-  
-  const saved_l = Math.max(baseline - actual, 0);
-  const saved_pct = baseline > 0 ? Math.round((saved_l / baseline) * 100) : 0;
-  
-  return { baseline, actual, saved_l, saved_pct };
+  // Return total saved across all zones
+  return { saved_l: totalSaved };
 }
 
 /**
@@ -66,78 +82,54 @@ export async function setupWaterSavedCard() {
       return;
     }
 
-    // Fetch zones
+    // Fetch zones with watering_amount_l and created_at
     const { data: zones, error: zonesError } = await supabase
       .from('zones')
-      .select('id, name, water_litres, baseline_days_per_week')
+      .select('id, name, watering_amount_l, created_at')
       .eq('owner', user.id);
 
     if (zonesError || !zones || zones.length === 0) {
-      contentEl.innerHTML = '<div class="water-saved-empty">Add zone defaults to estimate savings.</div>';
+      contentEl.innerHTML = '<div class="water-saved-empty">Add zones to view water savings.</div>';
       return;
     }
 
-    // Check if zones have baseline configured
-    const hasBaseline = zones.some(z => z.baseline_days_per_week && z.water_litres);
-    if (!hasBaseline) {
-      contentEl.innerHTML = '<div class="water-saved-empty">Set zone defaults to estimate savings.</div>';
-      return;
+    // Fetch all watering activities (inches_saved)
+    const { data: wateringActivities, error: activitiesError } = await supabase
+      .from('watering_activity')
+      .select('zone_id, inches_saved')
+      .in('zone_id', zones.map(z => z.id));
+
+    if (activitiesError) {
+      console.error('Error fetching watering activities:', activitiesError);
+      // Continue with empty activities array
     }
 
-    // Calculate period (last 7 days)
-    const to = new Date();
-    const from = new Date(to.getTime() - 7 * 86400000);
+    const activities = wateringActivities || [];
 
-    // Fetch irrigation events
-    const { data: events, error: eventsError } = await supabase
-      .from('irrigation_events')
-      .select('zone_id, ts, litres, source')
-      .gte('ts', from.toISOString())
-      .lte('ts', to.toISOString())
-      .order('ts', { ascending: true });
+    // Calculate water saved using new formula
+    const { saved_l } = calcWaterSaved(zones, activities);
 
-    if (eventsError) {
-      console.error('Error fetching irrigation events:', eventsError);
-      contentEl.innerHTML = '<div class="water-saved-empty">Error loading data</div>';
-      return;
-    }
-
-    const irrigationEvents = events || [];
-
-    // Calculate water saved
-    const { baseline, actual, saved_l, saved_pct } = calcWaterSaved(zones, irrigationEvents, { from, to });
-
-    // Calculate daily cumulative for sparkline
-    const dailyData = dailyCumulativeSaved(zones, irrigationEvents, { from, to });
-
-    // Render card content
-    renderWaterSavedContent(contentEl, { baseline, actual, saved_l, saved_pct, dailyData });
+    // Render card content (simplified - just show the total)
+    renderWaterSavedContent(contentEl, { saved_l });
 
     // Refresh every 30 seconds
     setInterval(async () => {
       const { data: updatedZones } = await supabase
         .from('zones')
-        .select('id, name, water_litres, baseline_days_per_week')
+        .select('id, name, watering_amount_l, created_at')
         .eq('owner', user.id);
 
       if (!updatedZones) return;
 
-      const { data: updatedEvents } = await supabase
-        .from('irrigation_events')
-        .select('zone_id, ts, litres, source')
-        .gte('ts', from.toISOString())
-        .lte('ts', to.toISOString())
-        .order('ts', { ascending: true });
+      const { data: updatedActivities } = await supabase
+        .from('watering_activity')
+        .select('zone_id, inches_saved')
+        .in('zone_id', updatedZones.map(z => z.id));
 
-      const newStats = calcWaterSaved(updatedZones, updatedEvents || [], { from, to });
-      const newDaily = dailyCumulativeSaved(updatedZones, updatedEvents || [], { from, to });
+      const newStats = calcWaterSaved(updatedZones, updatedActivities || []);
       
       renderWaterSavedContent(contentEl, {
-        baseline: newStats.baseline,
-        actual: newStats.actual,
-        saved_l: newStats.saved_l,
-        saved_pct: newStats.saved_pct,
-        dailyData: newDaily
+        saved_l: newStats.saved_l
       });
     }, 30000);
 
@@ -150,42 +142,14 @@ export async function setupWaterSavedCard() {
 /**
  * Render water saved content
  */
-function renderWaterSavedContent(contentEl, { baseline, actual, saved_l, saved_pct, dailyData }) {
-  // Handle edge cases
-  if (baseline === 0) {
-    contentEl.innerHTML = '<div class="water-saved-empty">Set zone defaults to estimate savings.</div>';
-    return;
-  }
-
-  const overBaseline = actual > baseline;
-  const displaySaved = overBaseline ? 0 : saved_l;
-  const displayPct = overBaseline ? 0 : saved_pct;
-
-  const actualPct = Math.min(100, (actual / baseline) * 100);
-  const savedPct = Math.min(100, (saved_l / baseline) * 100);
-
+function renderWaterSavedContent(contentEl, { saved_l }) {
+  // Display the calculated value y
+  const displayValue = Math.round(saved_l * 100) / 100; // Round to 2 decimal places
+  
   contentEl.innerHTML = `
-    <div class="water-saved-primary-stat">${Math.round(displaySaved)} L saved this week</div>
-    <div class="water-saved-percentage">${displayPct}% less vs schedule</div>
-    ${overBaseline ? '<div class="water-saved-empty" style="color: #f44336; font-size: 11px;">↑ Over baseline this week</div>' : ''}
-    
-    <div class="water-saved-bar-container">
-      <div class="water-saved-bar-labels">
-        <span>Actual: ${Math.round(actual)} L</span>
-        <span>Baseline: ${Math.round(baseline)} L</span>
-      </div>
-      <div class="water-saved-bar-track">
-        <div class="water-saved-bar-fill" style="width: ${actualPct}%;">
-          ${!overBaseline ? `<div class="water-saved-bar-saved" style="width: ${(savedPct / actualPct) * 100}%;"></div>` : ''}
-        </div>
-      </div>
-    </div>
-    
-    <canvas class="water-saved-sparkline" id="water-saved-sparkline"></canvas>
+    <div class="water-saved-primary-stat">${displayValue.toFixed(2)} inches</div>
+    <div class="water-saved-percentage">Water saved</div>
   `;
-
-  // Render sparkline
-  renderSparkline(dailyData);
 }
 
 /**

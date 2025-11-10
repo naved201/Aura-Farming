@@ -44,8 +44,12 @@ export async function fetchThresholds() {
 /**
  * Analyze moisture status for a single zone
  * Returns status object with threshold comparison and recommendations
+ * @param {string} zoneId - UUID of the zone
+ * @param {string} zoneName - Name of the zone
+ * @param {string} cropType - Type of crop
+ * @param {number|null} soilInches - Depth of soil in inches (from zones table)
  */
-export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
+export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType, soilInches = null) {
   try {
     // Fetch thresholds
     const thresholds = await fetchThresholds();
@@ -65,7 +69,8 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
         minMoisture: null,
         maxMoisture: null,
         needsWatering: false,
-        urgency: null
+        urgency: null,
+        waterInches: null
       };
     }
 
@@ -90,7 +95,8 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
         minMoisture: threshold.min_moisture,
         maxMoisture: threshold.max_moisture,
         needsWatering: false,
-        urgency: null
+        urgency: null,
+        waterInches: null
       };
     }
 
@@ -105,25 +111,40 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
         minMoisture: threshold.min_moisture,
         maxMoisture: threshold.max_moisture,
         needsWatering: false,
-        urgency: null
+        urgency: null,
+        waterInches: null
       };
     }
 
     const currentMoisture = telemetry.moisture;
     const minMoisture = threshold.min_moisture;
     const maxMoisture = threshold.max_moisture;
+    
+    // Calculate average moisture (target/ideal moisture level)
+    const avgMoisture = (minMoisture + maxMoisture) / 2;
 
     // Determine status
-    let status, message, needsWatering, urgency;
+    let status, message, needsWatering, urgency, waterInches = null;
     
-    if (currentMoisture < minMoisture) {
+    if (currentMoisture <= minMoisture) {
       status = 'critical';
       const deviation = minMoisture - currentMoisture;
-      message = `Moisture level (${currentMoisture.toFixed(1)}%) is below minimum threshold (${minMoisture}%). Water immediately!`;
+      
+      // Calculate water amount in inches if soil_inches is available
+      if (soilInches !== null && soilInches !== undefined && !isNaN(soilInches) && soilInches > 0) {
+        // Formula: ((avg_moisture - current_moisture) * inches_of_soil) / 100
+        waterInches = ((avgMoisture - currentMoisture) * soilInches) / 100;
+        // Ensure waterInches is not negative (shouldn't happen if avg > current, but safety check)
+        waterInches = Math.max(0, waterInches);
+        message = `Moisture level (${currentMoisture.toFixed(1)}%) is below minimum threshold (${minMoisture}%). Water immediately ${waterInches.toFixed(2)} inches`;
+      } else {
+        message = `Moisture level (${currentMoisture.toFixed(1)}%) is below minimum threshold (${minMoisture}%). Water immediately!`;
+      }
+      
       needsWatering = true;
       urgency = 'high';
     } else if (currentMoisture >= minMoisture && currentMoisture <= maxMoisture) {
-      // Check if it's close to minimum (within 5% of range)
+      // Check if it's close to minimum (within 10% of range)
       const range = maxMoisture - minMoisture;
       const distanceFromMin = currentMoisture - minMoisture;
       const percentOfRange = (distanceFromMin / range) * 100;
@@ -159,7 +180,8 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
       urgency,
       lastReadingTime: telemetry.ts,
       deviation: currentMoisture - minMoisture,
-      percentOfRange: status === 'normal' || status === 'low' ? ((currentMoisture - minMoisture) / (maxMoisture - minMoisture)) * 100 : null
+      percentOfRange: status === 'normal' || status === 'low' ? ((currentMoisture - minMoisture) / (maxMoisture - minMoisture)) * 100 : null,
+      waterInches: waterInches
     };
   } catch (error) {
     console.error('Error in analyzeZoneMoistureStatus:', error);
@@ -173,7 +195,8 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
       minMoisture: null,
       maxMoisture: null,
       needsWatering: false,
-      urgency: null
+      urgency: null,
+      waterInches: null
     };
   }
 }
@@ -262,10 +285,10 @@ export async function analyzeAllZones() {
       return [];
     }
 
-    // Fetch all zones for the user
+    // Fetch all zones for the user (including soil_inches)
     const { data: zones, error: zonesError } = await supabase
       .from('zones')
-      .select('id, name, crop_type')
+      .select('id, name, crop_type, soil_inches')
       .eq('owner', user.id);
 
     if (zonesError) {
@@ -277,10 +300,10 @@ export async function analyzeAllZones() {
       return [];
     }
 
-    // Analyze each zone
+    // Analyze each zone (pass soil_inches)
     const analyses = await Promise.all(
       zones.map(zone => 
-        analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type)
+        analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type, zone.soil_inches)
       )
     );
 
@@ -324,8 +347,11 @@ export async function generateWateringSuggestions() {
         status: analysis.status,
         urgency: analysis.urgency,
         message: analysis.message,
+        waterInches: analysis.waterInches,
         suggestedAction: analysis.status === 'critical' 
-          ? 'Water this zone immediately'
+          ? (analysis.waterInches !== null && analysis.waterInches !== undefined
+              ? `Water this zone immediately ${analysis.waterInches.toFixed(2)} inches`
+              : 'Water this zone immediately')
           : 'Consider watering this zone soon',
         lastReadingTime: analysis.lastReadingTime
       }));
@@ -403,26 +429,22 @@ export async function calculateThresholdCrossings(zoneId, cropType, hourlyData =
     const maxMoisture = threshold.max_moisture;
     const minMoisture = threshold.min_moisture;
 
-    // Get hourly data if not provided
-    let hourlyReadings = hourlyData;
-    if (!hourlyReadings) {
-      // Calculate yesterday in UTC (same as graph and soil health)
-      const now = new Date();
-      const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-      const startOfYesterday = new Date(todayUTC);
-      startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
-      const endOfYesterday = new Date(todayUTC);
+    // Get telemetry data if not provided (use all available data, like graph and soil health)
+    let telemetryReadings = hourlyData;
+    if (!telemetryReadings) {
+      console.log(`[Threshold Crossings] Fetching ALL telemetry data for zone ${zoneId}`);
       
-      // Fetch telemetry data from yesterday (UTC)
+      // Fetch ALL telemetry data for this zone (no time restrictions, same as graph)
       const { data: telemetryData, error } = await supabase
         .from('telemetry')
         .select('ts, moisture')
         .eq('zone_id', zoneId)
-        .gte('ts', startOfYesterday.toISOString())
-        .lt('ts', endOfYesterday.toISOString())
-        .order('ts', { ascending: true });
+        .not('moisture', 'is', null)
+        .order('ts', { ascending: true })
+        .limit(100); // Get last 100 readings
 
-      if (error || !telemetryData || telemetryData.length === 0) {
+      if (error) {
+        console.error(`[Threshold Crossings] Error fetching telemetry data:`, error);
         return {
           crossingsAboveMax: 0,
           crossingsBelowMin: 0,
@@ -434,12 +456,8 @@ export async function calculateThresholdCrossings(zoneId, cropType, hourlyData =
         };
       }
 
-      // Filter out invalid readings
-      const validReadings = telemetryData.filter(
-        r => r.moisture !== null && r.moisture !== undefined
-      );
-      
-      if (validReadings.length === 0) {
+      if (!telemetryData || telemetryData.length === 0) {
+        console.warn(`[Threshold Crossings] No telemetry data found for zone ${zoneId}`);
         return {
           crossingsAboveMax: 0,
           crossingsBelowMin: 0,
@@ -451,37 +469,23 @@ export async function calculateThresholdCrossings(zoneId, cropType, hourlyData =
         };
       }
 
-      // Group by UTC hour (0-23) and calculate averages
-      const hourlyDataMap = new Map();
-      validReadings.forEach(reading => {
-        const readingDate = new Date(reading.ts);
-        const hour = readingDate.getUTCHours();
-        
-        if (!hourlyDataMap.has(hour)) {
-          hourlyDataMap.set(hour, { sum: 0, count: 0 });
-        }
-        
-        const hourData = hourlyDataMap.get(hour);
-        hourData.sum += reading.moisture;
-        hourData.count += 1;
-      });
+      // Filter out invalid readings and convert to array with timestamps
+      const validReadings = telemetryData
+        .filter(r => r.moisture !== null && r.moisture !== undefined && !isNaN(r.moisture))
+        .map(r => ({
+          timestamp: new Date(r.ts),
+          moisture: parseFloat(r.moisture)
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
 
-      // Convert to array format, sorted by hour (0-23)
-      hourlyReadings = [];
-      for (let hour = 0; hour < 24; hour++) {
-        if (hourlyDataMap.has(hour)) {
-          const hourData = hourlyDataMap.get(hour);
-          hourlyReadings.push({
-            hour: hour,
-            moisture: hourData.sum / hourData.count
-          });
-        }
-      }
+      console.log(`[Threshold Crossings] Found ${validReadings.length} valid readings`);
       
-      hourlyReadings.sort((a, b) => a.hour - b.hour);
+      // Use individual readings directly for more accurate crossing detection
+      telemetryReadings = validReadings;
     }
 
-    if (!hourlyReadings || hourlyReadings.length === 0) {
+    if (!telemetryReadings || telemetryReadings.length === 0) {
+      console.warn(`[Threshold Crossings] No telemetry data available for zone ${zoneId}`);
       return {
         crossingsAboveMax: 0,
         crossingsBelowMin: 0,
@@ -493,46 +497,50 @@ export async function calculateThresholdCrossings(zoneId, cropType, hourlyData =
       };
     }
 
-    // Create a complete 24-hour array (0-23), filling in missing hours with null
-    const hourlyArray = new Array(24).fill(null);
-    hourlyReadings.forEach(reading => {
-      if (reading.hour >= 0 && reading.hour < 24) {
-        hourlyArray[reading.hour] = reading.moisture;
-      }
-    });
-
-    // Track threshold crossings (count how many times moisture exceeds max or goes below min)
+    // Track threshold crossings by analyzing the sequence of readings
+    // A crossing occurs when moisture transitions from one side of a threshold to the other
     let crossingsAboveMax = 0;
     let crossingsBelowMin = 0;
     let previousMoisture = null;
     let previousWasAboveMax = false;
     let previousWasBelowMin = false;
+    let previousWasInRange = true; // Start assuming we're in range
 
-    for (let hour = 0; hour < 24; hour++) {
-      const moisture = hourlyArray[hour];
+    // Process readings in chronological order
+    for (let i = 0; i < telemetryReadings.length; i++) {
+      const reading = telemetryReadings[i];
+      const moisture = reading.moisture;
       
-      if (moisture !== null) {
-        // Track threshold crossings
-        const isAboveMax = moisture > maxMoisture;
-        const isBelowMin = moisture < minMoisture;
-        
-        // Count crossings above max (transition from not above to above)
-        if (isAboveMax && !previousWasAboveMax && previousMoisture !== null) {
-          crossingsAboveMax++;
-          console.log(`[Threshold Crossings] Crossing above max at hour ${hour}: ${previousMoisture.toFixed(1)}% -> ${moisture.toFixed(1)}%`);
-        }
-        
-        // Count crossings below min (transition from not below to below)
-        if (isBelowMin && !previousWasBelowMin && previousMoisture !== null) {
-          crossingsBelowMin++;
-          console.log(`[Threshold Crossings] Crossing below min at hour ${hour}: ${previousMoisture.toFixed(1)}% -> ${moisture.toFixed(1)}%`);
-        }
-        
-        // Update previous state
-        previousMoisture = moisture;
-        previousWasAboveMax = isAboveMax;
-        previousWasBelowMin = isBelowMin;
+      if (moisture === null || moisture === undefined || isNaN(moisture)) {
+        continue; // Skip invalid readings
       }
+
+      // Determine current state relative to thresholds
+      const isAboveMax = moisture > maxMoisture;
+      const isBelowMin = moisture < minMoisture;
+      const isInRange = !isAboveMax && !isBelowMin;
+      
+      // Count crossings above max (transition from not above to above)
+      // This happens when we cross FROM (in range OR below min) TO above max
+      if (isAboveMax && !previousWasAboveMax && previousMoisture !== null) {
+        crossingsAboveMax++;
+        const prevState = previousWasBelowMin ? 'below min' : 'in range';
+        console.log(`[Threshold Crossings] Crossing above max: ${prevState} (${previousMoisture.toFixed(1)}%) -> above max (${moisture.toFixed(1)}%)`);
+      }
+      
+      // Count crossings below min (transition from not below to below)
+      // This happens when we cross FROM (in range OR above max) TO below min
+      if (isBelowMin && !previousWasBelowMin && previousMoisture !== null) {
+        crossingsBelowMin++;
+        const prevState = previousWasAboveMax ? 'above max' : 'in range';
+        console.log(`[Threshold Crossings] Crossing below min: ${prevState} (${previousMoisture.toFixed(1)}%) -> below min (${moisture.toFixed(1)}%)`);
+      }
+      
+      // Update previous state for next iteration
+      previousMoisture = moisture;
+      previousWasAboveMax = isAboveMax;
+      previousWasBelowMin = isBelowMin;
+      previousWasInRange = isInRange;
     }
 
     console.log(`[Threshold Crossings] Zone: ${zoneId}, Crop: ${cropType}`);
@@ -632,31 +640,22 @@ export async function calculateSoilHealthRisk(zoneId, cropType, hourlyData = nul
       };
     }
 
-    // Get hourly data if not provided (use the same logic as the graph - UTC time)
-    let hourlyReadings = hourlyData;
-    if (!hourlyReadings) {
-      // Calculate yesterday in UTC (same as graph) to ensure we're analyzing the same data
-      const now = new Date();
-      const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-      const startOfYesterday = new Date(todayUTC);
-      startOfYesterday.setUTCDate(startOfYesterday.getUTCDate() - 1);
-      const endOfYesterday = new Date(todayUTC);
+    // Get telemetry data if not provided (use all available data, like the graph)
+    let telemetryReadings = hourlyData;
+    if (!telemetryReadings) {
+      console.log(`[Soil Health Risk] Fetching ALL telemetry data for zone ${zoneId}`);
       
-      console.log(`[Soil Health Risk] Fetching data for zone ${zoneId}`);
-      console.log(`[Soil Health Risk] UTC - Start of yesterday: ${startOfYesterday.toISOString()}`);
-      console.log(`[Soil Health Risk] UTC - End of yesterday: ${endOfYesterday.toISOString()}`);
-      
-      // Fetch telemetry data from yesterday (UTC, same as graph)
+      // Fetch ALL telemetry data for this zone (no time restrictions, same as graph)
       const { data: telemetryData, error } = await supabase
         .from('telemetry')
         .select('ts, moisture')
         .eq('zone_id', zoneId)
-        .gte('ts', startOfYesterday.toISOString())
-        .lt('ts', endOfYesterday.toISOString())
-        .order('ts', { ascending: true });
+        .not('moisture', 'is', null)
+        .order('ts', { ascending: true })
+        .limit(100); // Get last 100 readings
 
       if (error) {
-        console.error('[Soil Health Risk] Error fetching telemetry:', error);
+        console.error(`[Soil Health Risk] Error fetching telemetry data:`, error);
         return {
           risk: 'error',
           hoursAboveMax: 0,
@@ -668,155 +667,116 @@ export async function calculateSoilHealthRisk(zoneId, cropType, hourlyData = nul
       }
 
       if (!telemetryData || telemetryData.length === 0) {
-        console.log(`[Soil Health Risk] No telemetry data found for zone ${zoneId}`);
+        console.warn(`[Soil Health Risk] No telemetry data found for zone ${zoneId}`);
         return {
           risk: 'no_data',
           hoursAboveMax: 0,
-          message: 'No data available',
+          message: 'Insufficient data to assess soil health risk. No telemetry data available for this zone.',
           maxMoisture: maxMoisture,
           moderateRiskHours: moderateRiskHours,
           highRiskHours: highRiskHours
         };
       }
 
-      console.log(`[Soil Health Risk] Found ${telemetryData.length} total readings`);
+      // Filter out invalid readings and convert to array with timestamps
+      telemetryReadings = telemetryData
+        .filter(r => r.moisture !== null && r.moisture !== undefined && !isNaN(r.moisture))
+        .map(r => ({
+          timestamp: new Date(r.ts),
+          moisture: parseFloat(r.moisture)
+        }))
+        .sort((a, b) => a.timestamp - b.timestamp); // Sort by timestamp
 
-      // Filter out invalid readings
-      const validReadings = telemetryData.filter(
-        r => r.moisture !== null && r.moisture !== undefined
-      );
-      
-      if (validReadings.length === 0) {
-        console.log(`[Soil Health Risk] No valid moisture readings`);
-        return {
-          risk: 'no_data',
-          hoursAboveMax: 0,
-          message: 'No valid moisture data',
-          maxMoisture: maxMoisture,
-          moderateRiskHours: moderateRiskHours,
-          highRiskHours: highRiskHours
-        };
-      }
-
-      // Group by UTC hour (0-23) and calculate averages
-      // This matches the graph's timezone and ensures we're analyzing the same period
-      const hourlyDataMap = new Map();
-      validReadings.forEach(reading => {
-        const readingDate = new Date(reading.ts);
-        // Use UTC hour (0-23) to match the graph
-        const hour = readingDate.getUTCHours();
-        
-        if (!hourlyDataMap.has(hour)) {
-          hourlyDataMap.set(hour, { sum: 0, count: 0 });
-        }
-        
-        const hourData = hourlyDataMap.get(hour);
-        hourData.sum += reading.moisture;
-        hourData.count += 1;
-      });
-
-      console.log(`[Soil Health Risk] Grouped into ${hourlyDataMap.size} hours with data`);
-
-      // Convert to array format, sorted by hour (0-23)
-      hourlyReadings = [];
-      for (let hour = 0; hour < 24; hour++) {
-        if (hourlyDataMap.has(hour)) {
-          const hourData = hourlyDataMap.get(hour);
-          const avgMoisture = hourData.sum / hourData.count;
-          hourlyReadings.push({
-            hour: hour,
-            moisture: avgMoisture
-          });
-          console.log(`[Soil Health Risk] Hour ${hour}: avg=${avgMoisture.toFixed(1)}%, above max(${maxMoisture}%)=${avgMoisture > maxMoisture}`);
-        }
-      }
-      
-      // Sort by hour to ensure correct order
-      hourlyReadings.sort((a, b) => a.hour - b.hour);
+      console.log(`[Soil Health Risk] Found ${telemetryReadings.length} valid readings`);
     }
 
-    if (!hourlyReadings || hourlyReadings.length === 0) {
+    if (!telemetryReadings || telemetryReadings.length === 0) {
       return {
         risk: 'no_data',
         hoursAboveMax: 0,
-        message: 'No hourly data available',
+        message: 'No telemetry data available',
         maxMoisture: maxMoisture,
         moderateRiskHours: moderateRiskHours,
         highRiskHours: highRiskHours
       };
     }
 
-    // Analyze hourly data to find continuous periods above max_moisture
-    // Create a complete 24-hour array (0-23), filling in missing hours with null
-    const hourlyArray = new Array(24).fill(null);
-    hourlyReadings.forEach(reading => {
-      if (reading.hour >= 0 && reading.hour < 24) {
-        hourlyArray[reading.hour] = reading.moisture;
-      }
-    });
-
-    // Debug logging
-    console.log(`[Soil Health Risk] Zone: ${zoneId}, Crop: ${cropType}`);
-    console.log(`[Soil Health Risk] Min Moisture: ${minMoisture}%, Max Moisture: ${maxMoisture}%, Moderate Risk: ${moderateRiskHours}h, High Risk: ${highRiskHours}h`);
-    console.log(`[Soil Health Risk] Hourly readings count: ${hourlyReadings.length}`);
-    console.log(`[Soil Health Risk] Hourly array:`, hourlyArray.map((m, h) => m !== null ? `H${h}:${m.toFixed(1)}%` : `H${h}:null`).join(', '));
-
-    // Find the longest continuous period where moisture is above max_moisture
-    // Missing hours (null) break continuity - we only count consecutive hours with data above max
+    // Calculate the longest continuous period (in hours) where moisture is above max_moisture
+    // Find consecutive readings above max and calculate the time span
     let longestPeriodHours = 0;
-    let currentPeriodHours = 0;
-    let longestPeriodStart = -1;
-    let currentPeriodStart = -1;
+    let currentPeriodStart = null;
+    let currentPeriodEnd = null;
 
-    for (let hour = 0; hour < 24; hour++) {
-      const moisture = hourlyArray[hour];
+    for (let i = 0; i < telemetryReadings.length; i++) {
+      const reading = telemetryReadings[i];
+      const isAboveMax = reading.moisture > maxMoisture;
+
+      if (isAboveMax) {
+        // Start or continue a period above max
+        if (currentPeriodStart === null) {
+          currentPeriodStart = reading.timestamp;
+        }
+        currentPeriodEnd = reading.timestamp;
+      } else {
+        // End of period above max - calculate duration
+        if (currentPeriodStart !== null && currentPeriodEnd !== null) {
+          // Calculate duration in hours from first to last reading in the period
+          const periodDurationHours = (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60);
+          
+          // If we only have one reading, estimate duration based on reading frequency
+          // Otherwise use actual time difference
+          if (currentPeriodStart.getTime() === currentPeriodEnd.getTime()) {
+            // Single reading above max
+            // Estimate: assume it lasted at least until the next reading (if exists)
+            if (i < telemetryReadings.length - 1) {
+              const nextReading = telemetryReadings[i + 1];
+              const timeUntilNext = (nextReading.timestamp.getTime() - reading.timestamp.getTime()) / (1000 * 60 * 60);
+              // Use half the time until next reading, minimum 0.5 hours
+              const estimatedHours = Math.max(0.5, timeUntilNext / 2);
+              if (estimatedHours > longestPeriodHours) {
+                longestPeriodHours = estimatedHours;
+              }
+            }
+          } else {
+            // Multiple readings - use actual time difference
+            if (periodDurationHours > longestPeriodHours) {
+              longestPeriodHours = periodDurationHours;
+            }
+          }
+          
+          currentPeriodStart = null;
+          currentPeriodEnd = null;
+        }
+      }
+    }
+
+    // Check if we ended while still above max (last reading is above max)
+    if (currentPeriodStart !== null && currentPeriodEnd !== null) {
+      const periodDurationHours = (currentPeriodEnd.getTime() - currentPeriodStart.getTime()) / (1000 * 60 * 60);
       
-      if (moisture !== null) {
-        // Track continuous periods above max (for soil health risk)
-        const isAboveMax = moisture > maxMoisture;
-        
-        if (isAboveMax) {
-          // This hour has data and is above max - add 1 hour to current period
-          if (currentPeriodHours === 0) {
-            currentPeriodStart = hour;
-          }
-          currentPeriodHours += 1;
-        } else {
-          // This hour is below max or has no data - end current period
-          if (currentPeriodHours > longestPeriodHours) {
-            longestPeriodHours = currentPeriodHours;
-            longestPeriodStart = currentPeriodStart;
-          }
-          currentPeriodHours = 0;
-          currentPeriodStart = -1;
+      if (currentPeriodStart.getTime() === currentPeriodEnd.getTime()) {
+        // Single reading at the end - estimate at least 0.5 hours
+        if (0.5 > longestPeriodHours) {
+          longestPeriodHours = 0.5;
         }
       } else {
-        // No data for this hour - end current period
-        if (currentPeriodHours > longestPeriodHours) {
-          longestPeriodHours = currentPeriodHours;
-          longestPeriodStart = currentPeriodStart;
+        // Multiple readings - use actual time difference
+        if (periodDurationHours > longestPeriodHours) {
+          longestPeriodHours = periodDurationHours;
         }
-        currentPeriodHours = 0;
-        currentPeriodStart = -1;
       }
     }
 
-    // Check if we ended while still above max
-    if (currentPeriodHours > longestPeriodHours) {
-      longestPeriodHours = currentPeriodHours;
-      longestPeriodStart = currentPeriodStart;
-    }
-
-    console.log(`[Soil Health Risk] Longest period above max: ${longestPeriodHours} hours (starting at hour ${longestPeriodStart})`);
-    console.log(`[Soil Health Risk] Comparison: ${longestPeriodHours} > ${highRiskHours} = ${longestPeriodHours > highRiskHours} (high risk)`);
-    console.log(`[Soil Health Risk] Comparison: ${longestPeriodHours} > ${moderateRiskHours} = ${longestPeriodHours > moderateRiskHours} (moderate risk)`);
+    console.log(`[Soil Health Risk] Zone: ${zoneId}, Crop: ${cropType}`);
+    console.log(`[Soil Health Risk] Max Moisture: ${maxMoisture}%, Moderate Risk: ${moderateRiskHours}h, High Risk: ${highRiskHours}h`);
+    console.log(`[Soil Health Risk] Longest continuous period above max: ${longestPeriodHours.toFixed(2)} hours`);
+    console.log(`[Soil Health Risk] Comparison: ${longestPeriodHours.toFixed(2)} > ${highRiskHours} = ${longestPeriodHours > highRiskHours} (high risk)`);
+    console.log(`[Soil Health Risk] Comparison: ${longestPeriodHours.toFixed(2)} > ${moderateRiskHours} = ${longestPeriodHours > moderateRiskHours} (moderate risk)`);
 
     // Determine risk level based on longest continuous period above max
-    // Soil health risk is INDEPENDENT of threshold crossings
     // High risk: hours > high_risk value
     // Moderate risk: hours > moderate_risk value (but <= high_risk if high_risk exists)
-    // Low risk: hours > 0 (but <= moderate_risk if moderate_risk exists)
-    // Healthy: hours = 0
+    // Healthy: hours <= moderate_risk (or no period above max)
     let risk = 'none';
     let message = 'Healthy';
 
@@ -825,22 +785,19 @@ export async function calculateSoilHealthRisk(zoneId, cropType, hourlyData = nul
     const moderateRiskHoursNum = moderateRiskHours ? Number(moderateRiskHours) : null;
     const longestPeriodHoursNum = Number(longestPeriodHours);
 
-    // Determine soil health risk (independent of threshold crossings)
-    if (highRiskHoursNum !== null && longestPeriodHoursNum > highRiskHoursNum) {
+    // Determine soil health risk
+    if (highRiskHoursNum !== null && longestPeriodHoursNum >= highRiskHoursNum) {
       risk = 'high';
-      message = `High risk - moisture has been above the maximum threshold for ${longestPeriodHoursNum.toFixed(1)} hours`;
-    } else if (moderateRiskHoursNum !== null && longestPeriodHoursNum > moderateRiskHoursNum) {
+      message = `High risk - moisture has been above the maximum threshold (${maxMoisture}%) for ${longestPeriodHoursNum.toFixed(1)} hours`;
+    } else if (moderateRiskHoursNum !== null && longestPeriodHoursNum >= moderateRiskHoursNum) {
       risk = 'moderate';
-      message = `Moderate risk - moisture has been above the maximum threshold for ${longestPeriodHoursNum.toFixed(1)} hours`;
-    } else if (longestPeriodHoursNum > 0) {
-      risk = 'low';
-      message = `Low risk - moisture has been above the maximum threshold for ${longestPeriodHoursNum.toFixed(1)} hours`;
+      message = `Moderate risk - moisture has been above the maximum threshold (${maxMoisture}%) for ${longestPeriodHoursNum.toFixed(1)} hours`;
     } else {
       risk = 'none';
       message = 'Healthy';
     }
 
-    console.log(`[Soil Health Risk] Final risk determination: ${risk} (${longestPeriodHoursNum}h > high:${highRiskHoursNum}h, moderate:${moderateRiskHoursNum}h)`);
+    console.log(`[Soil Health Risk] Final risk determination: ${risk} (${longestPeriodHoursNum.toFixed(2)}h vs high:${highRiskHoursNum}h, moderate:${moderateRiskHoursNum}h)`);
 
     return {
       risk,
