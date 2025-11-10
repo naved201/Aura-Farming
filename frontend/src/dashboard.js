@@ -688,10 +688,15 @@ async function loadWateringAlerts() {
             throw new Error('User not authenticated');
           }
           
-          // Prepare data for insertion
+          // Validate waterInches value
+          if (waterInches === null || isNaN(waterInches) || waterInches <= 0) {
+            throw new Error('Invalid water amount. Please provide a valid number of inches to water.');
+          }
+          
+          // Prepare data for insertion - use user_id instead of zone_id
           const insertData = {
-            zone_id: zoneId,
-            inches_saved: waterInches !== null && !isNaN(waterInches) ? waterInches : null
+            user_id: user.id,
+            inches_saved: waterInches
           };
           
           // Insert into watering_activity table
@@ -712,10 +717,8 @@ async function loadWateringAlerts() {
           console.log('Watering activity started:', data);
           
           // Show success message with water amount
-          const waterAmountText = waterInches !== null && !isNaN(waterInches) && waterInches > 0 
-            ? `${waterInches.toFixed(2)} inches` 
-            : 'N/A';
-          alert(`Sprinklers started successfully!\n\nZone: ${zoneId}\nWater amount: ${waterAmountText}`);
+          const waterAmountText = `${waterInches.toFixed(2)} inches`;
+          alert(`Sprinklers started successfully!\n\nWater amount: ${waterAmountText}`);
           
           // Remove the alert item from the DOM
           const alertItem = btn.closest('.alert-item');
@@ -743,8 +746,15 @@ async function loadWateringAlerts() {
           }
           
           // Reload water saved card to reflect the new watering activity
-          const { setupWaterSavedCard } = await import('./waterSaved.js');
-          setupWaterSavedCard();
+          // Import and call the refresh function for immediate update
+          const waterSavedModule = await import('./waterSaved.js');
+          // Force immediate update after watering activity is added
+          if (waterSavedModule.refreshWaterSavedCard) {
+            await waterSavedModule.refreshWaterSavedCard();
+          } else {
+            // Fallback to setupWaterSavedCard if refresh function doesn't exist
+            await waterSavedModule.setupWaterSavedCard();
+          }
           
         } catch (error) {
           console.error('Error starting sprinklers:', error);
@@ -754,7 +764,7 @@ async function loadWateringAlerts() {
           btn.classList.add('sprinkler-error');
           
           // Show error message
-          alert(`Error starting sprinklers: ${error.message}\n\nPlease check:\n1. You are logged in\n2. The zone exists\n3. Row Level Security allows INSERT`);
+          alert(`Error starting sprinklers: ${error.message}\n\nPlease check:\n1. You are logged in\n2. Row Level Security allows INSERT\n3. The water amount is valid`);
           
           // Reset button after error
           setTimeout(() => {

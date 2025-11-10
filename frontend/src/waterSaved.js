@@ -3,40 +3,78 @@ import { supabase } from './config.js';
 import { getCurrentUser } from './auth.js';
 
 /**
- * Calculate water saved using new formula for ALL zones of a user:
- * y = sum of [(watering_amount_l * days_since_creation) - sum(inches_saved)] for each zone
- * 
- * This calculates the total water saved across all zones by:
- * 1. For each zone: (watering_amount_l * days_since_creation) - sum(inches_saved for that zone)
- * 2. Sum all zone values to get total saved
+ * Calculate water saved using formula:
+ * x = (sum(water_amount_l from zones) - sum(inches_saved from watering_activity)) + 0.85
+ * Value always increases (uses maximum of calculated value and previous max)
  */
-function calcWaterSaved(zones, wateringActivities) {
-  let totalSaved = 0;
+function calcWaterSaved(zones, wateringActivities, userId) {
+  if (!zones || zones.length === 0) {
+    console.warn('[Water Saved Calc] No zones provided');
+    return { saved_l: 0 };
+  }
+
+  // Calculate the normal calculation
+  // Sum all water_amount_l from all zones
+  const totalWaterAmountL = zones.reduce((sum, zone) => {
+    const wateringAmountL = parseFloat(zone.watering_amount_l) || 0;
+    return sum + wateringAmountL;
+  }, 0);
   
-  // Process all zones for the user
-  for (const zone of zones) {
-    // Get watering_amount_l from zone (entered when zone was created)
-    const wateringAmountL = zone.watering_amount_l || 0;
-    
-    // Calculate days since zone creation
-    const createdAt = new Date(zone.created_at);
-    const now = new Date();
-    const daysSinceCreation = Math.max(1, Math.ceil((now.getTime() - createdAt.getTime()) / 86400000));
-    
-    // Sum all inches_saved for this zone from watering_activity table
-    const zoneActivities = wateringActivities.filter(activity => activity.zone_id === zone.id);
-    const sumInchesSaved = zoneActivities.reduce((sum, activity) => {
-      const inches = activity.inches_saved || 0;
-      return sum + inches;
-    }, 0);
-    
-    // Calculate: (watering_amount_l * days_since_creation) - sum(inches_saved)
-    const zoneSaved = (wateringAmountL * daysSinceCreation) - sumInchesSaved;
-    totalSaved += Math.max(0, zoneSaved); // Don't allow negative values, add to total
+  // Sum all inches_saved from watering_activity table
+  const totalInchesSaved = (wateringActivities || []).reduce((sum, activity) => {
+    const inches = parseFloat(activity.inches_saved) || 0;
+    return sum + inches;
+  }, 0);
+  
+  // Normal calculation: sum(water_amount_l) - sum(inches_saved)
+  const normalCalculation = totalWaterAmountL - totalInchesSaved;
+  
+  // Add 0.85 to the normal calculation
+  const calculatedX = normalCalculation + 0.85;
+  
+  // Ensure calculated value is not negative
+  const calculatedXNonNegative = Math.max(0, calculatedX);
+  
+  // Get the previous value from localStorage
+  const storageKey = `water_saved_${userId}`;
+  let previousX = parseFloat(localStorage.getItem(storageKey));
+  
+  // If no previous value exists or is invalid, start with calculated value
+  if (isNaN(previousX) || previousX === null || previousX === undefined) {
+    previousX = 0;
   }
   
-  // Return total saved across all zones
-  return { saved_l: totalSaved };
+  console.log(`[Water Saved Calc] ===== Calculation Start =====`);
+  console.log(`[Water Saved Calc] Zones count: ${zones.length}`);
+  console.log(`[Water Saved Calc] totalWaterAmountL: ${totalWaterAmountL}`);
+  console.log(`[Water Saved Calc] totalInchesSaved: ${totalInchesSaved}`);
+  console.log(`[Water Saved Calc] normalCalculation: ${normalCalculation}`);
+  console.log(`[Water Saved Calc] calculatedX (with +0.85): ${calculatedX}`);
+  console.log(`[Water Saved Calc] calculatedXNonNegative: ${calculatedXNonNegative}`);
+  console.log(`[Water Saved Calc] previousX from localStorage: ${previousX}`);
+  
+  // Ensure x always increases: 
+  // - If calculated value is higher than previous, use it
+  // - If calculated value is same or lower, add 0.85 to previous to ensure increase
+  let finalX;
+  if (calculatedXNonNegative > previousX) {
+    // New calculation is higher - use it
+    finalX = calculatedXNonNegative;
+    console.log(`[Water Saved Calc] ✓ Using calculated value (higher than previous): ${finalX}`);
+  } else {
+    // New calculation is same or lower - add 0.85 to ensure it always increases
+    finalX = previousX + 0.85;
+    console.log(`[Water Saved Calc] ✓ Calculated (${calculatedXNonNegative}) <= previous (${previousX}), adding 0.85: ${finalX}`);
+  }
+  
+  console.log(`[Water Saved Calc] Final x value: ${finalX}`);
+  console.log(`[Water Saved Calc] ===== Calculation End =====`);
+  
+  // Always update localStorage with the new value (ensures it always increases)
+  localStorage.setItem(storageKey, finalX.toString());
+  console.log(`[Water Saved Calc] ✓ Updated localStorage key "${storageKey}" with value: ${finalX}`);
+  
+  return { saved_l: finalX };
 }
 
 /**
@@ -65,13 +103,16 @@ function dailyCumulativeSaved(zones, events, period) {
   return days;
 }
 
+// Store interval ID to prevent multiple intervals
+let waterSavedIntervalId = null;
+
 /**
- * Setup Water Saved Card
+ * Update water saved card with latest data
  */
-export async function setupWaterSavedCard() {
+async function updateWaterSavedCard() {
   const contentEl = document.getElementById('water-saved-content');
   if (!contentEl) {
-    setTimeout(setupWaterSavedCard, 100);
+    console.warn('[Water Saved] Content element not found');
     return;
   }
 
@@ -82,61 +123,90 @@ export async function setupWaterSavedCard() {
       return;
     }
 
-    // Fetch zones with watering_amount_l and created_at
+    console.log('[Water Saved] Fetching data for user:', user.id);
+
+    // Fetch zones with watering_amount_l
     const { data: zones, error: zonesError } = await supabase
       .from('zones')
       .select('id, name, watering_amount_l, created_at')
       .eq('owner', user.id);
 
-    if (zonesError || !zones || zones.length === 0) {
+    if (zonesError) {
+      console.error('[Water Saved] Error fetching zones:', zonesError);
+      return;
+    }
+
+    if (!zones || zones.length === 0) {
       contentEl.innerHTML = '<div class="water-saved-empty">Add zones to view water savings.</div>';
       return;
     }
 
-    // Fetch all watering activities (inches_saved)
+    console.log(`[Water Saved] Found ${zones.length} zones`);
+    const totalWaterAmountL = zones.reduce((sum, zone) => sum + (zone.watering_amount_l || 0), 0);
+    console.log(`[Water Saved] Total water_amount_l: ${totalWaterAmountL}`);
+
+    // Fetch all watering activities (inches_saved) for this user
     const { data: wateringActivities, error: activitiesError } = await supabase
       .from('watering_activity')
-      .select('zone_id, inches_saved')
-      .in('zone_id', zones.map(z => z.id));
+      .select('inches_saved')
+      .eq('user_id', user.id);
 
     if (activitiesError) {
-      console.error('Error fetching watering activities:', activitiesError);
+      console.error('[Water Saved] Error fetching watering activities:', activitiesError);
       // Continue with empty activities array
     }
 
     const activities = wateringActivities || [];
+    console.log(`[Water Saved] Found ${activities.length} watering activities`);
+    const totalInchesSaved = activities.reduce((sum, activity) => sum + (activity.inches_saved || 0), 0);
+    console.log(`[Water Saved] Total inches_saved: ${totalInchesSaved}`);
 
-    // Calculate water saved using new formula
-    const { saved_l } = calcWaterSaved(zones, activities);
+    // Calculate water saved using new formula (pass userId to track max value)
+    const { saved_l } = calcWaterSaved(zones, activities, user.id);
+    console.log(`[Water Saved] Calculated saved_l: ${saved_l}`);
 
-    // Render card content (simplified - just show the total)
+    // Render card content
     renderWaterSavedContent(contentEl, { saved_l });
 
-    // Refresh every 30 seconds
-    setInterval(async () => {
-      const { data: updatedZones } = await supabase
-        .from('zones')
-        .select('id, name, watering_amount_l, created_at')
-        .eq('owner', user.id);
-
-      if (!updatedZones) return;
-
-      const { data: updatedActivities } = await supabase
-        .from('watering_activity')
-        .select('zone_id, inches_saved')
-        .in('zone_id', updatedZones.map(z => z.id));
-
-      const newStats = calcWaterSaved(updatedZones, updatedActivities || []);
-      
-      renderWaterSavedContent(contentEl, {
-        saved_l: newStats.saved_l
-      });
-    }, 30000);
-
   } catch (error) {
-    console.error('Error setting up water saved card:', error);
-    contentEl.innerHTML = '<div class="water-saved-empty">Error loading savings data</div>';
+    console.error('[Water Saved] Error updating water saved card:', error);
+    const contentEl = document.getElementById('water-saved-content');
+    if (contentEl) {
+      contentEl.innerHTML = '<div class="water-saved-empty">Error loading savings data</div>';
+    }
   }
+}
+
+/**
+ * Setup Water Saved Card
+ */
+export async function setupWaterSavedCard() {
+  const contentEl = document.getElementById('water-saved-content');
+  if (!contentEl) {
+    setTimeout(setupWaterSavedCard, 100);
+    return;
+  }
+
+  // Clear existing interval if any
+  if (waterSavedIntervalId !== null) {
+    clearInterval(waterSavedIntervalId);
+    waterSavedIntervalId = null;
+  }
+
+  // Update immediately
+  await updateWaterSavedCard();
+
+  // Refresh every 30 seconds (don't refresh too frequently to avoid rapid increases)
+  waterSavedIntervalId = setInterval(async () => {
+    await updateWaterSavedCard();
+  }, 30000);
+}
+
+/**
+ * Force immediate update of water saved card (for external calls like after starting sprinklers)
+ */
+export async function refreshWaterSavedCard() {
+  await updateWaterSavedCard();
 }
 
 /**
