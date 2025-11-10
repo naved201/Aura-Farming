@@ -68,7 +68,7 @@ export function setupDashboard() {
     setupZoneInformationToggles();
     
     // Setup zone schedule toggles
-    setupZoneScheduleToggles();
+    // setupZoneScheduleToggles(); // Removed - View Zone Schedule section disabled
   });
 }
 
@@ -178,12 +178,6 @@ function generateZoneHTML(zone, index) {
             <path d="M6 9l6 6 6-6"/>
           </svg>
         </button>
-        <button class="zone-schedule-toggle" data-zone-id="${zoneId}" aria-label="Toggle ${zoneName} Schedule">
-          <span class="zone-schedule-toggle-text">View Zone Schedule</span>
-          <svg class="zone-schedule-toggle-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </button>
       </div>
       <div class="zone-graph-section" data-zone-id="${zoneId}">
         <div class="zone-graph-section-inner">
@@ -225,13 +219,6 @@ function generateZoneHTML(zone, index) {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-      <div class="zone-schedule-section" data-zone-id="${zoneId}">
-        <div class="zone-schedule-section-inner">
-          <div class="zone-individual-schedule" id="zone-${zoneId}-schedule-columns">
-            <!-- Schedule cards will be generated here -->
           </div>
         </div>
       </div>
