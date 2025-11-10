@@ -563,8 +563,17 @@
   padding-left: 28px;
 }
 
-/* Crop type icon */
+/* Zone name icon (first field) */
 .form-field:first-of-type label::before {
+  content: '📍';
+  position: absolute;
+  left: 0;
+  font-size: 20px;
+  animation: wiggle 3s ease-in-out infinite;
+}
+
+/* Crop type icon (second field) */
+.form-field:nth-of-type(2) label::before {
   content: '🌾';
   position: absolute;
   left: 0;
@@ -572,8 +581,8 @@
   animation: wiggle 3s ease-in-out infinite;
 }
 
-/* Water litres icon */
-.form-field:nth-of-type(2) label::before {
+/* Water litres icon (third field) */
+.form-field:nth-of-type(3) label::before {
   content: '💧';
   position: absolute;
   left: 0;
@@ -581,9 +590,9 @@
   animation: bounce 2s ease-in-out infinite;
 }
 
-/* Frequency icon */
-.form-field:nth-of-type(3) label::before {
-  content: '📅';
+/* Soil inches icon (fourth field) */
+.form-field:nth-of-type(4) label::before {
+  content: '🌱';
   position: absolute;
   left: 0;
   font-size: 20px;

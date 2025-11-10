@@ -44,8 +44,12 @@ export async function fetchThresholds() {
 /**
  * Analyze moisture status for a single zone
  * Returns status object with threshold comparison and recommendations
+ * @param {string} zoneId - UUID of the zone
+ * @param {string} zoneName - Name of the zone
+ * @param {string} cropType - Type of crop
+ * @param {number|null} soilInches - Depth of soil in inches (from zones table)
  */
-export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
+export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType, soilInches = null) {
   try {
     // Fetch thresholds
     const thresholds = await fetchThresholds();
@@ -65,7 +69,8 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
         minMoisture: null,
         maxMoisture: null,
         needsWatering: false,
-        urgency: null
+        urgency: null,
+        waterInches: null
       };
     }
 
@@ -90,7 +95,8 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
         minMoisture: threshold.min_moisture,
         maxMoisture: threshold.max_moisture,
         needsWatering: false,
-        urgency: null
+        urgency: null,
+        waterInches: null
       };
     }
 
@@ -105,25 +111,40 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
         minMoisture: threshold.min_moisture,
         maxMoisture: threshold.max_moisture,
         needsWatering: false,
-        urgency: null
+        urgency: null,
+        waterInches: null
       };
     }
 
     const currentMoisture = telemetry.moisture;
     const minMoisture = threshold.min_moisture;
     const maxMoisture = threshold.max_moisture;
+    
+    // Calculate average moisture (target/ideal moisture level)
+    const avgMoisture = (minMoisture + maxMoisture) / 2;
 
     // Determine status
-    let status, message, needsWatering, urgency;
+    let status, message, needsWatering, urgency, waterInches = null;
     
-    if (currentMoisture < minMoisture) {
+    if (currentMoisture <= minMoisture) {
       status = 'critical';
       const deviation = minMoisture - currentMoisture;
-      message = `Moisture level (${currentMoisture.toFixed(1)}%) is below minimum threshold (${minMoisture}%). Water immediately!`;
+      
+      // Calculate water amount in inches if soil_inches is available
+      if (soilInches !== null && soilInches !== undefined && !isNaN(soilInches) && soilInches > 0) {
+        // Formula: ((avg_moisture - current_moisture) * inches_of_soil) / 100
+        waterInches = ((avgMoisture - currentMoisture) * soilInches) / 100;
+        // Ensure waterInches is not negative (shouldn't happen if avg > current, but safety check)
+        waterInches = Math.max(0, waterInches);
+        message = `Moisture level (${currentMoisture.toFixed(1)}%) is below minimum threshold (${minMoisture}%). Water immediately ${waterInches.toFixed(2)} inches`;
+      } else {
+        message = `Moisture level (${currentMoisture.toFixed(1)}%) is below minimum threshold (${minMoisture}%). Water immediately!`;
+      }
+      
       needsWatering = true;
       urgency = 'high';
     } else if (currentMoisture >= minMoisture && currentMoisture <= maxMoisture) {
-      // Check if it's close to minimum (within 5% of range)
+      // Check if it's close to minimum (within 10% of range)
       const range = maxMoisture - minMoisture;
       const distanceFromMin = currentMoisture - minMoisture;
       const percentOfRange = (distanceFromMin / range) * 100;
@@ -159,7 +180,8 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
       urgency,
       lastReadingTime: telemetry.ts,
       deviation: currentMoisture - minMoisture,
-      percentOfRange: status === 'normal' || status === 'low' ? ((currentMoisture - minMoisture) / (maxMoisture - minMoisture)) * 100 : null
+      percentOfRange: status === 'normal' || status === 'low' ? ((currentMoisture - minMoisture) / (maxMoisture - minMoisture)) * 100 : null,
+      waterInches: waterInches
     };
   } catch (error) {
     console.error('Error in analyzeZoneMoistureStatus:', error);
@@ -173,7 +195,8 @@ export async function analyzeZoneMoistureStatus(zoneId, zoneName, cropType) {
       minMoisture: null,
       maxMoisture: null,
       needsWatering: false,
-      urgency: null
+      urgency: null,
+      waterInches: null
     };
   }
 }
@@ -262,10 +285,10 @@ export async function analyzeAllZones() {
       return [];
     }
 
-    // Fetch all zones for the user
+    // Fetch all zones for the user (including soil_inches)
     const { data: zones, error: zonesError } = await supabase
       .from('zones')
-      .select('id, name, crop_type')
+      .select('id, name, crop_type, soil_inches')
       .eq('owner', user.id);
 
     if (zonesError) {
@@ -277,10 +300,10 @@ export async function analyzeAllZones() {
       return [];
     }
 
-    // Analyze each zone
+    // Analyze each zone (pass soil_inches)
     const analyses = await Promise.all(
       zones.map(zone => 
-        analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type)
+        analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type, zone.soil_inches)
       )
     );
 
@@ -324,8 +347,11 @@ export async function generateWateringSuggestions() {
         status: analysis.status,
         urgency: analysis.urgency,
         message: analysis.message,
+        waterInches: analysis.waterInches,
         suggestedAction: analysis.status === 'critical' 
-          ? 'Water this zone immediately'
+          ? (analysis.waterInches !== null && analysis.waterInches !== undefined
+              ? `Water this zone immediately ${analysis.waterInches.toFixed(2)} inches`
+              : 'Water this zone immediately')
           : 'Consider watering this zone soon',
         lastReadingTime: analysis.lastReadingTime
       }));

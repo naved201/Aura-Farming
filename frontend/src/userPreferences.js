@@ -87,8 +87,8 @@ export function createUserPreferencesComponent() {
               </div>
               
               <div class="form-field">
-                <label for="frequency">Frequency in a day</label>
-                <input type="number" id="frequency" class="form-input" placeholder="Enter frequency">
+                <label for="frequency">Inches of soil</label>
+                <input type="number" id="frequency" class="form-input" placeholder="Enter inches" step="0.1">
               </div>
               
               <div class="form-field checkbox-field">
@@ -189,7 +189,7 @@ export async function loadUserZones() {
 
     const { data: zones, error } = await supabase
       .from('zones')
-      .select('id, name, crop_type, watering_amount_l, auto_irrigation_enabled, owner')
+      .select('id, name, crop_type, watering_amount_l, soil_inches, auto_irrigation_enabled, owner')
       .eq('owner', profile.id);
 
     if (error) {

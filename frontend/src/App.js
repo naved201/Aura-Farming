@@ -146,7 +146,7 @@ export function loadZoneIntoForm(zone) {
     cropTypeInput.dispatchEvent(new Event('change')); // Trigger change event
   }
   if (waterVolumeInput) waterVolumeInput.value = zone?.watering_amount_l || '';
-  if (frequencyInput) frequencyInput.value = zone?.frequency || '';
+  if (frequencyInput) frequencyInput.value = zone?.soil_inches || '';
   if (automateCheckbox) automateCheckbox.checked = zone?.auto_irrigation_enabled || false;
   
   // Trigger input events to update formData
@@ -274,29 +274,29 @@ export function setupUserPreferences() {
     });
   }
 
-  // Handle frequency input
+  // Handle soil inches input (previously frequency)
   const frequencyInput = document.getElementById('frequency');
   if (frequencyInput) {
     frequencyInput.addEventListener('input', (e) => {
-      const value = parseInt(e.target.value);
-      formData.frequency = value;
+      const value = parseFloat(e.target.value);
+      formData.frequency = value; // Keep using frequency key in formData for now to avoid breaking other code
       
-      // Validation: Check if it's a valid positive integer
-      if (!isNaN(value) && value > 0 && value <= 24) {
+      // Validation: Check if it's a valid positive number (allow decimals)
+      if (!isNaN(value) && value > 0) {
         frequencyInput.style.borderColor = '#4caf50'; // Green border when valid
-        console.log('Frequency:', value, 'times per day');
+        console.log('Soil inches:', value, 'inches');
       } else if (e.target.value === '') {
         frequencyInput.style.borderColor = 'rgba(102, 187, 106, 0.35)'; // Reset to default
         formData.frequency = '';
       } else {
         frequencyInput.style.borderColor = '#f44336'; // Red border when invalid
-        console.log('Invalid frequency (must be 1-24)');
+        console.log('Invalid soil inches (must be greater than 0)');
       }
     });
 
-    // Prevent negative numbers and decimals
+    // Prevent negative numbers (but allow decimals)
     frequencyInput.addEventListener('keydown', (e) => {
-      if (e.key === '-' || e.key === '.' || e.key === 'e' || e.key === 'E' || e.key === '+') {
+      if (e.key === '-' || e.key === 'e' || e.key === 'E' || e.key === '+') {
         e.preventDefault();
       }
     });
@@ -336,8 +336,8 @@ export function setupUserPreferences() {
         return;
       }
       
-      if (!formData.frequency || formData.frequency <= 0 || formData.frequency > 24) {
-        alert('Please enter a valid frequency (1-24 times per day)');
+      if (!formData.frequency || formData.frequency <= 0) {
+        alert('Please enter a valid soil depth in inches (must be greater than 0)');
         frequencyInput?.focus();
         return;
       }
@@ -371,7 +371,7 @@ export function setupUserPreferences() {
               name: formData.zoneName.trim(),
               crop_type: formData.cropType.trim(),
               watering_amount_l: formData.waterVolume,
-              //frequency: formData.frequency,
+              soil_inches: formData.frequency,
               auto_irrigation_enabled: formData.automate
             })
             .eq('id', editingZoneId)
@@ -398,7 +398,7 @@ export function setupUserPreferences() {
               .update({
                 crop_type: formData.cropType.trim(),
                 watering_amount_l: formData.waterVolume,
-                //frequency: formData.frequency,
+                soil_inches: formData.frequency,
                 auto_irrigation_enabled: formData.automate
               })
               .eq('id', existingZone.id)
@@ -415,7 +415,7 @@ export function setupUserPreferences() {
                 name: formData.zoneName.trim(),
                 crop_type: formData.cropType.trim(),
                 watering_amount_l: formData.waterVolume,
-                //frequency: formData.frequency,
+                soil_inches: formData.frequency,
                 auto_irrigation_enabled: formData.automate
               })
               .select();
@@ -430,7 +430,7 @@ export function setupUserPreferences() {
         }
 
         // Success!
-        alert(`Zone "${formData.zoneName}" saved successfully!\nCrop: ${formData.cropType}\nWater: ${formData.waterVolume}L\nFrequency: ${formData.frequency}x/day\nAutomate: ${formData.automate ? 'Yes' : 'No'}`);
+        alert(`Zone "${formData.zoneName}" saved successfully!\nCrop: ${formData.cropType}\nWater: ${formData.waterVolume}L\nSoil Depth: ${formData.frequency} inches\nAutomate: ${formData.automate ? 'Yes' : 'No'}`);
         
         // Clear form after successful save
         if (zoneNameInput) zoneNameInput.value = '';

@@ -251,10 +251,10 @@ async function loadZoneTelemetryData() {
       return;
     }
 
-    // Get all zones for the current user (include crop_type for threshold analysis)
+    // Get all zones for the current user (include crop_type and soil_inches for threshold analysis)
     const { data: zones, error: zonesError } = await supabase
       .from('zones')
-      .select('id, name, crop_type')
+      .select('id, name, crop_type, soil_inches')
       .eq('owner', user.id);
 
     if (zonesError) {
@@ -296,7 +296,7 @@ async function loadZoneTelemetryData() {
         
         // Analyze moisture status and update zone with status indicator
         if (zone.crop_type) {
-          analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type)
+          analyzeZoneMoistureStatus(zone.id, zone.name, zone.crop_type, zone.soil_inches)
             .then(status => {
               updateZoneStatusIndicator(zoneWrapper, status);
             })
