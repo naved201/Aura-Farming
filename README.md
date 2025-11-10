@@ -1,23 +1,10 @@
-# Aura Farming 🌱
+# Aura Farming
 
 **A Smart IoT-Based Farming System for Real-Time Soil Moisture Monitoring and Water Management**
 
 ---
 
-## 📋 Table of Contents
-
-- [Device Concept](#device-concept)
-- [Features](#features)
-- [How to Access the Software](#how-to-access-the-software)
-- [Hardware Setup](#hardware-setup)
-- [Project Structure](#project-structure)
-- [Technology Stack](#technology-stack)
-- [Links & Resources](#links--resources)
-- [Credits](#credits)
-
----
-
-## 🎯 Device Concept
+## Device Concept
 
 **Aura Farming** is an intelligent IoT-based agricultural monitoring system designed to optimize water usage and improve crop health through real-time soil moisture and rainfall monitoring. The system consists of:
 
@@ -25,7 +12,7 @@
 - **ESP32 Microcontroller** (LilyGo T-Display compatible) - The brain of the device
 - **Soil Moisture Sensor** - Measures soil moisture levels (0-100%)
 - **Rain Sensor** - Detects rainfall and precipitation
-- **Wi-Fi Connectivity** - Transmits data to the cloud in real-time
+
 
 ### How It Works
 1. **Data Collection**: ESP32 devices placed in farming zones continuously monitor soil moisture and rainfall using connected sensors
@@ -39,15 +26,15 @@
 4. **Smart Management**: Users can configure multiple zones, set crop-specific thresholds, and enable automated irrigation recommendations
 
 ### Key Benefits
-- 💧 **Water Conservation**: Optimize irrigation schedules to reduce water waste
-- 📊 **Data-Driven Decisions**: Real-time insights help farmers make informed watering decisions
-- 🌾 **Crop-Specific Monitoring**: Customizable thresholds based on crop type and soil depth
-- ⚡ **Real-Time Alerts**: Get notified when zones need attention
-- 📈 **Historical Tracking**: View moisture trends over time with interactive graphs
+- **Water Conservation**: Optimize irrigation schedules to reduce water waste
+- **Data-Driven Decisions**: Real-time insights help farmers make informed watering decisions
+- **Crop-Specific Monitoring**: Customizable thresholds based on crop type and soil depth
+- **Real-Time Alerts**: Get notified when zones need attention
+- **Historical Tracking**: View moisture trends over time with interactive graphs
 
 ---
 
-## ✨ Features
+## Features
 
 ### Dashboard
 - **Multi-Zone Monitoring**: View and manage multiple farming zones from a single dashboard
@@ -74,7 +61,7 @@
 
 ---
 
-## 🚀 How to Access the Software
+## How to Access the Software
 
 ### Prerequisites
 - Node.js (v16 or higher)
@@ -82,70 +69,6 @@
 - A Supabase account (for backend database)
 - ESP32-compatible hardware (for sensor deployment)
 
-### Installation Steps
-
-1. **Clone the Repository**
-   ```bash
-   git clone <repository-url>
-   cd Aura-Farming
-   ```
-
-2. **Install Frontend Dependencies**
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-3. **Configure Supabase**
-   - Create a Supabase project at [supabase.com](https://supabase.com)
-   - Update `frontend/src/config.js` with your Supabase URL and anon key
-   - Set up the required database tables (zones, telemetry, profiles, etc.)
-
-4. **Run the Development Server**
-   ```bash
-   npm run dev
-   ```
-   The application will be available at `http://localhost:5173`
-
-5. **Build for Production**
-   ```bash
-   npm run build
-   npm run preview
-   ```
-
-### Hardware Setup
-
-1. **Configure ESP32 Device**
-   - Open `Hardware/aura_farming_esp32/aura_farming_esp32.ino` in Arduino IDE
-   - Install required libraries:
-     - WiFi
-     - WiFiClientSecure
-     - HTTPClient
-     - ArduinoJson
-   - Update Wi-Fi credentials in the code:
-     ```cpp
-     const char* ssid = "YOUR_WIFI_SSID";
-     const char* password = "YOUR_WIFI_PASSWORD";
-     ```
-   - Update Supabase configuration:
-     ```cpp
-     const char* supabaseUrl = "YOUR_SUPABASE_URL";
-     const char* supabaseAnonKey = "YOUR_SUPABASE_ANON_KEY";
-     const char* DEFAULT_ZONE_ID = "YOUR_ZONE_UUID";
-     ```
-   - Connect sensors:
-     - Soil sensor → GPIO 36 (VP, ADC)
-     - Rain sensor → GPIO 34 (ADC)
-   - Upload the sketch to your ESP32
-
-2. **Calibrate Sensors**
-   - Adjust `ADC_DRY` and `ADC_WET` values based on your sensor readings
-   - Test in dry and wet conditions to ensure accurate measurements
-
-### Accessing the Web Application
-
-- **Local Development**: `http://localhost:5173`
-- **Production**: Deploy the built files to your preferred hosting service (Vercel, Netlify, etc.)
 
 ### First-Time Setup
 1. Create an account or sign in to the web application
@@ -154,35 +77,9 @@
 4. Deploy ESP32 devices to your zones and ensure they're connected to Wi-Fi
 5. View real-time data on the Dashboard
 
----
 
-## 📁 Project Structure
 
-```
-Aura-Farming/
-├── frontend/                 # Web application frontend
-│   ├── src/
-│   │   ├── App.js           # Main application component
-│   │   ├── dashboard.js     # Dashboard functionality
-│   │   ├── auth.js          # Authentication logic
-│   │   ├── config.js        # Supabase configuration
-│   │   ├── moistureAnalysis.js  # Moisture analysis algorithms
-│   │   ├── userPreferences.js   # Zone management
-│   │   ├── cropManagement.js    # Crop management features
-│   │   ├── waterSaved.js        # Water savings tracking
-│   │   └── ...              # Other components
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.js
-├── Hardware/
-│   └── aura_farming_esp32/
-│       └── aura_farming_esp32.ino  # ESP32 firmware
-└── README.md
-```
-
----
-
-## 🛠 Technology Stack
+## Technology Stack
 
 ### Frontend
 - **Vite** - Build tool and development server
@@ -198,57 +95,153 @@ Aura-Farming/
 - **Arduino IDE** - Firmware development
 - **Sensors**: Soil moisture sensor, Rain sensor
 
----
-
-## 🔗 Links & Resources
-
-### Try Out the Software
-- **Live Demo**: [Add your deployed URL here]
-- **Development Server**: `http://localhost:5173` (after running `npm run dev`)
-
-### Documentation
-- **Supabase Documentation**: [https://supabase.com/docs](https://supabase.com/docs)
-- **ESP32 Documentation**: [https://docs.espressif.com/projects/esp-idf/en/latest/esp32/](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/)
-- **Arduino Reference**: [https://www.arduino.cc/reference/en/](https://www.arduino.cc/reference/en/)
 
 ### Presentation Materials
-- **PowerPoint/PDF**: [Add link to your presentation if available]
-- **Demo Video**: [Add link to demo video if available]
+- **PowerPoint/PDF**: 
+- **Demo Video**: 
 
-### Additional Resources
-- **GitHub Repository**: [Add your repository URL]
-- **Issue Tracker**: [Add link if using GitHub Issues]
-- **Wiki/Documentation**: [Add link if available]
 
----
 
-## 👥 Credits
+## Justifications of Code/Hardware Choices
 
-### Development Team
-- **Project**: Aura Farming
-- **Event**: NatHacks 2025
-- **Developers**: [Add team member names]
+### Rainfall Detector in Combination with Soil Moisture Detectors
 
-### Technologies & Libraries
-- **Supabase** - Backend-as-a-Service platform
-- **Vite** - Next-generation frontend tooling
-- **ArduinoJson** - JSON library for Arduino
-- **ESP32** - Espressif Systems microcontroller
+We are using rainfall detectors alongside soil moisture sensors because in the field, it may take a while for the water to reach deeper layers of soil, while rainfall detectors instantly detect water. This dual-sensor approach provides:
 
-### Acknowledgments
-- Special thanks to the NatHacks 2025 organizers
-- Inspired by the need for sustainable agriculture and water conservation
+- **Immediate Detection**: Rain sensors detect precipitation instantly, allowing the system to account for natural watering before soil moisture levels change
+- **Accurate Watering Decisions**: By combining both sensors, we can avoid unnecessary irrigation when rain has already occurred
+- **Soil Penetration Time**: Soil moisture sensors may take minutes or hours to reflect surface rainfall, especially in deeper soil layers, making rain sensors essential for real-time decision-making
 
----
+### ESP32 Microcontroller Choice
 
-## 📝 Additional Information
+The ESP32 was chosen over alternatives (Arduino Uno, Raspberry Pi, etc.) for several critical reasons:
+
+- **Built-in Wi-Fi**: ESP32 has integrated Wi-Fi connectivity, eliminating the need for additional Wi-Fi shields or modules, reducing cost and complexity
+- **Dual-Core Processing**: The dual-core architecture allows efficient handling of sensor readings and network communication simultaneously
+- **Low Power Consumption**: ESP32's power management features are essential for battery-powered field deployments
+- **ADC Capabilities**: Built-in 12-bit ADC (Analog-to-Digital Converter) with multiple channels (GPIO 36, 34) perfectly matches our sensor requirements
+- **Cost-Effective**: Significantly cheaper than Raspberry Pi while providing all necessary IoT capabilities
+- **Arduino Compatibility**: Works with Arduino IDE and libraries, making development faster and more accessible
+- **LilyGo T-Display Support**: Compatible with display modules for potential future UI enhancements
+
+### Supabase Backend Choice
+
+Supabase gives you production-grade auth on top of Postgres with Row-Level Security (RLS), handy SDKs, and a generous free tier—so you ship secure sign-up/login fast without reinventing sessions, tokens, or password flows.
+
+**Authentication & User Management**: Supabase handles authentication and user management. The app initializes a Supabase client with your project URL and anon key in `config.js`. The login page (`login.js`) uses `supabase.auth.signUp()` and `supabase.auth.signInWithPassword()` to create accounts and authenticate users. On successful login, Supabase creates a session stored in browser localStorage, so users stay logged in across sessions. The router in `main.js` checks authentication via `checkAuth()` from `auth.js` before showing the dashboard; if not authenticated, it redirects to the login page. The dashboard (`App.js`) calls `protectRoute()` on load to verify authentication again. User data is stored in Supabase's `auth.users` table, with a `profiles` table linked via Row Level Security (RLS) so users only access their own data. The connection between login and dashboard is handled by the router checking the session and redirecting accordingly—login redirects to `/dashboard` on success, and the dashboard redirects to `/` if the user isn't authenticated.
+
+**Additional Benefits**:
+- **PostgreSQL Database**: Full-featured relational database with JSON support
+- **Row-Level Security (RLS)**: Database-level security ensures users can only access their own zones and telemetry data
+- **Real-time Capabilities**: Built-in real-time subscriptions for live data updates
+- **REST API**: Automatic REST API generation from database schema
+- **Free Tier**: Generous free tier perfect for hackathon and prototype development
+- **SDK Support**: Well-maintained JavaScript SDK for frontend integration
+
+### Database Schema Design Choices
+
+**Thresholds Table with `crop_name` as Primary Key**: Using `crop_name` as the primary key (instead of a surrogate UUID) provides:
+- **Natural Key**: Crop names are meaningful identifiers that don't require lookups
+- **Simpler Queries**: Direct joins without additional foreign key relationships
+- **Case-Insensitive Lookup**: Index on `lower(crop_name)` ensures consistent matching regardless of input case
+- **Data Integrity**: Unique constraint prevents duplicate crop definitions
+
+**Zones and Telemetry Separation**: Separating zone configuration from telemetry readings provides:
+- **Normalization**: Avoids data duplication and maintains referential integrity
+- **Efficient Queries**: Indexed `zone_id` and `ts` columns enable fast time-series queries
+- **Scalability**: Can handle millions of telemetry records per zone without affecting zone configuration queries
+
+**Row-Level Security (RLS) Policies**: Database-level security ensures:
+- **Data Isolation**: Users can only read/write their own zones and telemetry data
+- **Security at Source**: Security enforced at database level, not just application level
+- **Automatic Enforcement**: Works regardless of how data is accessed (REST API, direct SQL, etc.)
+
+### 30-Second Sensor Reading Interval
+
+The 30-second interval (`SENSOR_READ_INTERVAL = 30UL * 1000UL`) was chosen to balance:
+
+- **Data Freshness**: Provides near-real-time monitoring without excessive delay
+- **Battery Life**: Longer intervals would save power but reduce responsiveness
+- **Network Usage**: Prevents overwhelming the network or database with excessive requests
+- **Soil Moisture Dynamics**: Soil moisture changes slowly, so 30 seconds captures meaningful changes without redundancy
+- **Cost Efficiency**: Reduces Supabase API calls while maintaining adequate monitoring granularity
+
+### ADC Averaging (5 Samples)
+
+The `readAveragedADC()` function takes 5 samples with 40ms delays between readings:
+
+- **Noise Reduction**: Analog sensors are susceptible to electrical noise; averaging multiple samples filters out transient spikes
+- **Accuracy Improvement**: Reduces measurement variance and provides more stable readings
+- **Minimal Overhead**: 5 samples with 40ms delays = 200ms total, which is negligible compared to the 30-second interval
+- **Industry Standard**: Multi-sample averaging is a common practice in embedded sensor applications
+
+### Vanilla JavaScript (No Framework)
+
+Using vanilla JavaScript instead of React, Vue, or Angular provides:
+
+- **Zero Framework Overhead**: No virtual DOM, no framework runtime, resulting in faster initial load times
+- **Smaller Bundle Size**: Minimal dependencies reduce the final bundle size significantly
+- **Simpler Deployment**: No complex build configurations or framework-specific deployment requirements
+- **Direct DOM Control**: Full control over DOM manipulation without framework abstractions
+- **Faster Development**: For a hackathon project, vanilla JS allows rapid iteration without learning curve
+- **Performance**: Direct DOM updates can be faster than framework reconciliation for simple UIs
+
+### Vite Build Tool
+
+Vite was chosen over Webpack, Parcel, or other bundlers because:
+
+- **Lightning-Fast HMR**: Near-instant Hot Module Replacement during development
+- **Native ES Modules**: Uses native ES modules in development, eliminating bundling overhead
+- **Minimal Configuration**: Works out-of-the-box with minimal setup
+- **Modern Tooling**: Built for modern JavaScript with native ESM support
+- **Fast Builds**: Uses esbuild for production builds, resulting in faster build times
+- **Development Server**: Built-in dev server with automatic reloading
+
+### Canvas API for Graphs
+
+Using native Canvas API instead of Chart.js or other charting libraries:
+
+- **Zero Dependencies**: No external library needed, reducing bundle size and avoiding version conflicts
+- **Full Control**: Complete control over rendering, styling, and interactions without library constraints
+- **Performance**: Direct canvas rendering is highly performant for real-time data visualization
+- **Customization**: Easy to implement custom features like threshold lines, zone-specific styling, and dynamic scaling
+- **Lightweight**: Native browser API with no additional dependencies or framework overhead
+
+### ArduinoJson Library
+
+Using ArduinoJson for JSON serialization on ESP32:
+
+- **Memory Efficient**: Designed specifically for embedded systems with limited RAM
+- **Small Footprint**: Minimal memory usage compared to full JSON libraries
+- **ESP32 Optimized**: Works seamlessly with ESP32's memory constraints
+- **Easy Integration**: Simple API for creating and parsing JSON payloads
+- **Reliability**: Well-tested library widely used in IoT projects
+
+### WiFiClientSecure with setInsecure()
+
+The code uses `WiFiClientSecure` with `setInsecure()` for HTTPS connections:
+
+- **Demo/Prototype Purpose**: For hackathon/prototype, certificate validation is disabled for simplicity
+- **Production Note**: In production, this should be replaced with proper certificate pinning or validation
+- **Supabase Compatibility**: Supabase REST API requires HTTPS, so secure client is necessary
+- **Future Improvement**: Production version should implement proper SSL certificate validation
+
+### Database Indexes
+
+Strategic indexes on `telemetry` table:
+
+- **`telemetry_zone_ts_idx`**: Composite index on `(zone_id, ts)` enables fast queries for zone-specific time-series data
+- **`telemetry_ts_idx`**: Index on `ts` (timestamp) enables efficient time-range queries across all zones
+- **Query Performance**: These indexes are essential for dashboard graphs and trend analysis, which frequently query historical data
+
+## Additional Information
 
 ### Database Schema
 The system uses the following main tables:
 - **zones**: Farming zone configurations
 - **telemetry**: Sensor readings (moisture, rain, timestamps)
 - **profiles**: User profile information
-- **crops**: Crop type definitions and requirements
+- **thresholds**: Crop-specific moisture thresholds
 
 ### API Endpoints
 - All database operations are handled through Supabase REST API
@@ -256,10 +249,11 @@ The system uses the following main tables:
 - Frontend uses Supabase JS client for all database operations
 
 ### Security Notes
-- ⚠️ **Important**: The ESP32 code uses Supabase anon key for demo purposes
+- The ESP32 code uses Supabase anon key for demo purposes
 - For production, implement Supabase Edge Functions with service role key
 - Ensure Wi-Fi credentials are secured and not committed to version control
 - Use environment variables for sensitive configuration
+- Row-Level Security (RLS) policies ensure users can only access their own data
 
 ### Future Enhancements
 - Mobile app for iOS and Android
@@ -269,20 +263,4 @@ The system uses the following main tables:
 - Automated irrigation valve control
 - SMS/Email notifications
 
----
 
-## 📄 License
-
-[Add your license information here]
-
----
-
-## 🤝 Contributing
-
-[Add contribution guidelines if applicable]
-
----
-
-**Built with ❤️ for sustainable farming and water conservation**
-
-For questions or support, please open an issue in the repository or contact the development team.
